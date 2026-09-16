@@ -1,4 +1,4 @@
-name: Fabric 26.2 Baseline
+name: Astra Microblocks One-Block Compile
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -28,13 +28,13 @@ jobs:
         with:
           gradle-version: "9.5.1"
 
-      - name: Create Fabric 26.2 baseline
+      - name: Create Astra Microblocks test project
         shell: bash
         run: |
-          mkdir -p baseline/src/main/java/dev/astra/microblocks
-          mkdir -p baseline/src/main/resources
+          mkdir -p testmod/src/main/java/dev/astra/microblocks
+          mkdir -p testmod/src/main/resources
 
-          cat > baseline/settings.gradle <<'EOF'
+          cat > testmod/settings.gradle <<'EOF'
           pluginManagement {
               repositories {
                   maven { url = 'https://maven.fabricmc.net/' }
@@ -42,10 +42,10 @@ jobs:
               }
           }
 
-          rootProject.name = 'astra-microblocks-baseline'
+          rootProject.name = 'astra-microblocks'
           EOF
 
-          cat > baseline/gradle.properties <<'EOF'
+          cat > testmod/gradle.properties <<'EOF'
           org.gradle.jvmargs=-Xmx2G
           org.gradle.parallel=false
           org.gradle.configuration-cache=false
@@ -55,10 +55,10 @@ jobs:
           loom_version=1.17.12
           fabric_api_version=0.160.0+26.2
 
-          version=0.0.1-baseline
+          version=0.1.0-test
           EOF
 
-          cat > baseline/build.gradle <<'EOF'
+          cat > testmod/build.gradle <<'EOF'
           plugins {
               id 'net.fabricmc.fabric-loom' version "${loom_version}"
           }
@@ -67,7 +67,7 @@ jobs:
           version = project.version
 
           base {
-              archivesName = 'astra-microblocks-baseline'
+              archivesName = 'astra-microblocks'
           }
 
           repositories {
@@ -98,16 +98,17 @@ jobs:
           }
           EOF
 
-          cat > baseline/src/main/resources/fabric.mod.json <<'EOF'
+          cat > testmod/src/main/resources/fabric.mod.json <<'EOF'
           {
             "schemaVersion": 1,
-            "id": "astra_microblocks_baseline",
+            "id": "astra_microblocks",
             "version": "${version}",
-            "name": "Astra Microblocks Baseline",
+            "name": "Astra Microblocks",
+            "description": "One-block Minecraft 26.2 runtime test",
             "environment": "*",
             "entrypoints": {
               "main": [
-                "dev.astra.microblocks.BaselineMod"
+                "dev.astra.microblocks.AstraMicroblocks"
               ]
             },
             "depends": {
@@ -119,17 +120,312 @@ jobs:
           }
           EOF
 
-          cat > baseline/src/main/java/dev/astra/microblocks/BaselineMod.java <<'EOF'
+          cat > testmod/src/main/java/dev/astra/microblocks/AstraMicroblocks.java <<'EOF'
           package dev.astra.microblocks;
 
           import net.fabricmc.api.ModInitializer;
+          import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 
-          public final class BaselineMod implements ModInitializer {
+          import net.minecraft.core.Registry;
+          import net.minecraft.core.registries.BuiltInRegistries;
+          import net.minecraft.resources.Identifier;
+          import net.minecraft.resources.ResourceKey;
+          import net.minecraft.world.item.BlockItem;
+          import net.minecraft.world.item.Item;
+          import net.minecraft.world.level.block.Block;
+          import net.minecraft.world.level.block.Blocks;
+          import net.minecraft.world.level.block.entity.BlockEntityType;
+          import net.minecraft.world.level.block.state.BlockBehaviour;
+
+          public final class AstraMicroblocks implements ModInitializer {
+              public static final String MOD_ID = "astra_microblocks";
+
+              public static Identifier id(String path) {
+                  return Identifier.fromNamespaceAndPath(MOD_ID, path);
+              }
+
+              private static final ResourceKey<Block> TEST_HOST_KEY =
+                      ResourceKey.create(
+                              BuiltInRegistries.BLOCK.key(),
+                              id("test_host")
+                      );
+
+              private static final ResourceKey<Item> TEST_HOST_ITEM_KEY =
+                      ResourceKey.create(
+                              BuiltInRegistries.ITEM.key(),
+                              id("test_host")
+                      );
+
+              public static final TestHostBlock TEST_HOST =
+                      new TestHostBlock(
+                              BlockBehaviour.Properties
+                                      .ofFullCopy(Blocks.STONE)
+                                      .setId(TEST_HOST_KEY)
+                      );
+
+              public static BlockEntityType<TestHostBlockEntity>
+                      TEST_HOST_ENTITY;
+
               @Override
               public void onInitialize() {
-                  System.out.println(
-                      "Astra Microblocks Fabric 26.2 baseline loaded"
+                  Registry.register(
+                          BuiltInRegistries.BLOCK,
+                          TEST_HOST_KEY,
+                          TEST_HOST
                   );
+
+                  Registry.register(
+                          BuiltInRegistries.ITEM,
+                          TEST_HOST_ITEM_KEY,
+                          new BlockItem(
+                                  TEST_HOST,
+                                  new Item.Properties()
+                                          .useBlockDescriptionPrefix()
+                                          .setId(TEST_HOST_ITEM_KEY)
+                          )
+                  );
+
+                  TEST_HOST_ENTITY = Registry.register(
+                          BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                          id("test_host"),
+                          FabricBlockEntityTypeBuilder
+                                  .create(
+                                      TestHostBlockEntity::new,
+                                      TEST_HOST
+                                  )
+                                  .build()
+                  );
+
+                  System.out.println(
+                          "Astra Microblocks one-block test initialized"
+                  );
+              }
+          }
+          EOF
+
+          cat > testmod/src/main/java/dev/astra/microblocks/TestHostBlock.java <<'EOF'
+          package dev.astra.microblocks;
+
+          import com.mojang.serialization.MapCodec;
+          import org.jetbrains.annotations.Nullable;
+
+          import net.minecraft.core.BlockPos;
+          import net.minecraft.world.InteractionResult;
+          import net.minecraft.world.entity.player.Player;
+          import net.minecraft.world.level.BlockGetter;
+          import net.minecraft.world.level.Level;
+          import net.minecraft.world.level.block.BaseEntityBlock;
+          import net.minecraft.world.level.block.entity.BlockEntity;
+          import net.minecraft.world.level.block.state.BlockState;
+          import net.minecraft.world.phys.BlockHitResult;
+          import net.minecraft.world.phys.shapes.CollisionContext;
+          import net.minecraft.world.phys.shapes.Shapes;
+          import net.minecraft.world.phys.shapes.VoxelShape;
+
+          public final class TestHostBlock extends BaseEntityBlock {
+              private static final MapCodec<TestHostBlock> CODEC =
+                      simpleCodec(TestHostBlock::new);
+
+              private static final VoxelShape SOLID =
+                      Shapes.block();
+
+              private static final VoxelShape CARVED =
+                      Shapes.or(
+                              box(0, 0, 0, 15, 16, 16),
+                              box(15, 0, 0, 16, 15, 16),
+                              box(15, 15, 0, 16, 16, 15)
+                      );
+
+              public TestHostBlock(Properties properties) {
+                  super(properties);
+              }
+
+              @Override
+              protected MapCodec<? extends BaseEntityBlock> codec() {
+                  return CODEC;
+              }
+
+              @Nullable
+              @Override
+              public BlockEntity newBlockEntity(
+                      BlockPos pos,
+                      BlockState state
+              ) {
+                  return new TestHostBlockEntity(pos, state);
+              }
+
+              @Override
+              protected InteractionResult useWithoutItem(
+                      BlockState state,
+                      Level level,
+                      BlockPos pos,
+                      Player player,
+                      BlockHitResult hit
+              ) {
+                  if (level.isClientSide()) {
+                      return InteractionResult.SUCCESS;
+                  }
+
+                  if (!(level.getBlockEntity(pos)
+                          instanceof TestHostBlockEntity host)) {
+                      return InteractionResult.PASS;
+                  }
+
+                  if (player.isShiftKeyDown()) {
+                      host.undo();
+                  } else {
+                      host.carveCorner();
+                  }
+
+                  return InteractionResult.SUCCESS;
+              }
+
+              @Override
+              protected VoxelShape getShape(
+                      BlockState state,
+                      BlockGetter level,
+                      BlockPos pos,
+                      CollisionContext context
+              ) {
+                  if (level.getBlockEntity(pos)
+                          instanceof TestHostBlockEntity host
+                          && host.isCarved()) {
+                      return CARVED;
+                  }
+
+                  return SOLID;
+              }
+
+              @Override
+              protected VoxelShape getCollisionShape(
+                      BlockState state,
+                      BlockGetter level,
+                      BlockPos pos,
+                      CollisionContext context
+              ) {
+                  return getShape(state, level, pos, context);
+              }
+          }
+          EOF
+
+          cat > testmod/src/main/java/dev/astra/microblocks/TestHostBlockEntity.java <<'EOF'
+          package dev.astra.microblocks;
+
+          import net.minecraft.core.BlockPos;
+          import net.minecraft.core.HolderLookup;
+          import net.minecraft.nbt.CompoundTag;
+          import net.minecraft.network.protocol.Packet;
+          import net.minecraft.network.protocol.game.ClientGamePacketListener;
+          import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+          import net.minecraft.world.level.block.Block;
+          import net.minecraft.world.level.block.entity.BlockEntity;
+          import net.minecraft.world.level.block.state.BlockState;
+          import net.minecraft.world.level.storage.ValueInput;
+          import net.minecraft.world.level.storage.ValueOutput;
+
+          public final class TestHostBlockEntity extends BlockEntity {
+              private boolean carved;
+              private boolean canUndo;
+              private long revision;
+
+              public TestHostBlockEntity(
+                      BlockPos pos,
+                      BlockState state
+              ) {
+                  super(
+                          AstraMicroblocks.TEST_HOST_ENTITY,
+                          pos,
+                          state
+                  );
+              }
+
+              public boolean isCarved() {
+                  return carved;
+              }
+
+              public long revision() {
+                  return revision;
+              }
+
+              public void carveCorner() {
+                  if (carved) {
+                      return;
+                  }
+
+                  carved = true;
+                  canUndo = true;
+                  revision++;
+                  publish();
+              }
+
+              public void undo() {
+                  if (!canUndo || !carved) {
+                      return;
+                  }
+
+                  carved = false;
+                  canUndo = false;
+                  revision++;
+                  publish();
+              }
+
+              private void publish() {
+                  setChanged();
+
+                  if (level == null) {
+                      return;
+                  }
+
+                  BlockState state = getBlockState();
+
+                  level.sendBlockUpdated(
+                          worldPosition,
+                          state,
+                          state,
+                          Block.UPDATE_ALL
+                  );
+              }
+
+              @Override
+              protected void saveAdditional(ValueOutput output) {
+                  output.putBoolean("carved", carved);
+                  output.putBoolean("can_undo", canUndo);
+                  output.putLong("revision", revision);
+
+                  super.saveAdditional(output);
+              }
+
+              @Override
+              protected void loadAdditional(ValueInput input) {
+                  super.loadAdditional(input);
+
+                  carved = input.getBooleanOr(
+                          "carved",
+                          false
+                  );
+
+                  canUndo = input.getBooleanOr(
+                          "can_undo",
+                          false
+                  );
+
+                  revision = input.getLongOr(
+                          "revision",
+                          0L
+                  );
+              }
+
+              @Override
+              public CompoundTag getUpdateTag(
+                      HolderLookup.Provider registryLookup
+              ) {
+                  return saveWithoutMetadata(registryLookup);
+              }
+
+              @Override
+              public Packet<ClientGamePacketListener>
+                      getUpdatePacket() {
+                  return ClientboundBlockEntityDataPacket.create(this);
               }
           }
           EOF
@@ -139,18 +435,35 @@ jobs:
           java -version
           gradle --version
 
-      - name: Build Fabric baseline
-        run: gradle -p baseline clean build --stacktrace --no-daemon
-
-      - name: Inspect JAR
+      - name: Compile actual one-block implementation
         run: |
-          ls -lah baseline/build/libs/
-          jar tf baseline/build/libs/astra-microblocks-baseline-0.0.1-baseline.jar \
-            | grep -E 'fabric.mod.json|BaselineMod.class'
+          gradle -p testmod clean build \
+            --stacktrace \
+            --no-daemon
 
-      - name: Upload test JAR
+      - name: Inspect resulting JAR
+        run: |
+          ls -lah testmod/build/libs/
+
+          JAR="testmod/build/libs/astra-microblocks-0.1.0-test.jar"
+
+          test -f "$JAR"
+
+          jar tf "$JAR" \
+            | grep 'dev/astra/microblocks/AstraMicroblocks.class'
+
+          jar tf "$JAR" \
+            | grep 'dev/astra/microblocks/TestHostBlock.class'
+
+          jar tf "$JAR" \
+            | grep 'dev/astra/microblocks/TestHostBlockEntity.class'
+
+          jar tf "$JAR" \
+            | grep 'fabric.mod.json'
+
+      - name: Upload compiled one-block test
         uses: actions/upload-artifact@v7
         with:
-          name: astra-microblocks-fabric-baseline
-          path: baseline/build/libs/astra-microblocks-baseline-0.0.1-baseline.jar
+          name: astra-microblocks-one-block-test
+          path: testmod/build/libs/astra-microblocks-0.1.0-test.jar
           if-no-files-found: error
