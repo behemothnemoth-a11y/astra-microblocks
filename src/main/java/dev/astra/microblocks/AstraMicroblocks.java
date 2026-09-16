@@ -72,7 +72,12 @@ public final class AstraMicroblocks implements ModInitializer {
                         )
                         .build()
         );
-
+System.out.println(
+        "Astra Microblocks initialized on Minecraft 26.2"
+);
+if (Boolean.getBoolean("astra.lifecycleTest")) {
+    LifecycleTest.register();
+}
         System.out.println(
                 "Astra Microblocks initialized on Minecraft 26.2"
         );
