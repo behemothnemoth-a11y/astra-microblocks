@@ -1,4 +1,4 @@
-name: Astra Microblocks One-Block Compile
+name: Astra Microblocks Runtime Gate
 
 on:
   push:
@@ -9,9 +9,9 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  runtime-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -28,7 +28,7 @@ jobs:
         with:
           gradle-version: "9.5.1"
 
-      - name: Create Astra Microblocks test project
+      - name: Create Astra Microblocks runtime project
         shell: bash
         run: |
           mkdir -p testmod/src/main/java/dev/astra/microblocks
@@ -55,7 +55,7 @@ jobs:
           loom_version=1.17.12
           fabric_api_version=0.160.0+26.2
 
-          version=0.1.0-test
+          version=0.1.1-runtime
           EOF
 
           cat > testmod/build.gradle <<'EOF'
@@ -104,7 +104,7 @@ jobs:
             "id": "astra_microblocks",
             "version": "${version}",
             "name": "Astra Microblocks",
-            "description": "One-block Minecraft 26.2 runtime test",
+            "description": "Minecraft 26.2 one-block runtime gate",
             "environment": "*",
             "entrypoints": {
               "main": [
@@ -141,7 +141,10 @@ jobs:
               public static final String MOD_ID = "astra_microblocks";
 
               public static Identifier id(String path) {
-                  return Identifier.fromNamespaceAndPath(MOD_ID, path);
+                  return Identifier.fromNamespaceAndPath(
+                          MOD_ID,
+                          path
+                  );
               }
 
               private static final ResourceKey<Block> TEST_HOST_KEY =
@@ -197,7 +200,19 @@ jobs:
                   );
 
                   System.out.println(
-                          "Astra Microblocks one-block test initialized"
+                          "ASTRA_RUNTIME_MARKER: INITIALIZED"
+                  );
+
+                  System.out.println(
+                          "ASTRA_RUNTIME_MARKER: TEST_HOST_REGISTERED="
+                          + BuiltInRegistries.BLOCK
+                              .containsKey(id("test_host"))
+                  );
+
+                  System.out.println(
+                          "ASTRA_RUNTIME_MARKER: TEST_HOST_ENTITY_REGISTERED="
+                          + BuiltInRegistries.BLOCK_ENTITY_TYPE
+                              .containsKey(id("test_host"))
                   );
               }
           }
@@ -229,6 +244,14 @@ jobs:
               private static final VoxelShape SOLID =
                       Shapes.block();
 
+              /*
+               * 16x16x16 conceptual grid.
+               *
+               * The carved state removes only cell:
+               * (15, 15, 15)
+               *
+               * Minecraft box coordinates are expressed in sixteenths.
+               */
               private static final VoxelShape CARVED =
                       Shapes.or(
                               box(0, 0, 0, 15, 16, 16),
@@ -287,13 +310,7 @@ jobs:
                       BlockPos pos,
                       CollisionContext context
               ) {
-                  if (level.getBlockEntity(pos)
-                          instanceof TestHostBlockEntity host
-                          && host.isCarved()) {
-                      return CARVED;
-                  }
-
-                  return SOLID;
+                  return shapeFor(level, pos);
               }
 
               @Override
@@ -303,7 +320,20 @@ jobs:
                       BlockPos pos,
                       CollisionContext context
               ) {
-                  return getShape(state, level, pos, context);
+                  return shapeFor(level, pos);
+              }
+
+              private VoxelShape shapeFor(
+                      BlockGetter level,
+                      BlockPos pos
+              ) {
+                  if (level.getBlockEntity(pos)
+                          instanceof TestHostBlockEntity host
+                          && host.isCarved()) {
+                      return CARVED;
+                  }
+
+                  return SOLID;
               }
           }
           EOF
@@ -323,7 +353,9 @@ jobs:
           import net.minecraft.world.level.storage.ValueInput;
           import net.minecraft.world.level.storage.ValueOutput;
 
-          public final class TestHostBlockEntity extends BlockEntity {
+          public final class TestHostBlockEntity
+                  extends BlockEntity {
+
               private boolean carved;
               private boolean canUndo;
               private long revision;
@@ -343,6 +375,10 @@ jobs:
                   return carved;
               }
 
+              public boolean canUndo() {
+                  return canUndo;
+              }
+
               public long revision() {
                   return revision;
               }
@@ -355,6 +391,12 @@ jobs:
                   carved = true;
                   canUndo = true;
                   revision++;
+
+                  System.out.println(
+                          "ASTRA_RUNTIME_MARKER: CARVE revision="
+                          + revision
+                  );
+
                   publish();
               }
 
@@ -366,6 +408,12 @@ jobs:
                   carved = false;
                   canUndo = false;
                   revision++;
+
+                  System.out.println(
+                          "ASTRA_RUNTIME_MARKER: UNDO revision="
+                          + revision
+                  );
+
                   publish();
               }
 
@@ -388,9 +436,20 @@ jobs:
 
               @Override
               protected void saveAdditional(ValueOutput output) {
-                  output.putBoolean("carved", carved);
-                  output.putBoolean("can_undo", canUndo);
-                  output.putLong("revision", revision);
+                  output.putBoolean(
+                          "carved",
+                          carved
+                  );
+
+                  output.putBoolean(
+                          "can_undo",
+                          canUndo
+                  );
+
+                  output.putLong(
+                          "revision",
+                          revision
+                  );
 
                   super.saveAdditional(output);
               }
@@ -425,45 +484,97 @@ jobs:
               @Override
               public Packet<ClientGamePacketListener>
                       getUpdatePacket() {
-                  return ClientboundBlockEntityDataPacket.create(this);
+                  return ClientboundBlockEntityDataPacket.create(
+                          this
+                  );
               }
           }
           EOF
 
-      - name: Show environment
-        run: |
-          java -version
-          gradle --version
-
-      - name: Compile actual one-block implementation
+      - name: Compile Astra Microblocks
         run: |
           gradle -p testmod clean build \
             --stacktrace \
             --no-daemon
 
-      - name: Inspect resulting JAR
+      - name: Inspect compiled JAR
+        shell: bash
         run: |
-          ls -lah testmod/build/libs/
-
-          JAR="testmod/build/libs/astra-microblocks-0.1.0-test.jar"
+          JAR="testmod/build/libs/astra-microblocks-0.1.1-runtime.jar"
 
           test -f "$JAR"
 
           jar tf "$JAR" \
-            | grep 'dev/astra/microblocks/AstraMicroblocks.class'
+            | grep 'AstraMicroblocks.class'
 
           jar tf "$JAR" \
-            | grep 'dev/astra/microblocks/TestHostBlock.class'
+            | grep 'TestHostBlock.class'
 
           jar tf "$JAR" \
-            | grep 'dev/astra/microblocks/TestHostBlockEntity.class'
+            | grep 'TestHostBlockEntity.class'
 
           jar tf "$JAR" \
             | grep 'fabric.mod.json'
 
-      - name: Upload compiled one-block test
+      - name: Start Minecraft dedicated development server
+        shell: bash
+        working-directory: testmod
+        run: |
+          set +e
+
+          timeout --signal=INT 120s \
+            gradle runServer \
+              --no-daemon \
+              --console=plain \
+              > runtime-server.log 2>&1
+
+          STATUS=$?
+
+          set -e
+
+          echo "Server command exit status: $STATUS"
+
+          cat runtime-server.log
+
+          if [ "$STATUS" -ne 0 ] && [ "$STATUS" -ne 124 ]; then
+            echo "Minecraft server exited unexpectedly."
+            exit "$STATUS"
+          fi
+
+      - name: Verify Minecraft actually loaded Astra
+        shell: bash
+        working-directory: testmod
+        run: |
+          test -f runtime-server.log
+
+          grep -F \
+            "ASTRA_RUNTIME_MARKER: INITIALIZED" \
+            runtime-server.log
+
+          grep -F \
+            "ASTRA_RUNTIME_MARKER: TEST_HOST_REGISTERED=true" \
+            runtime-server.log
+
+          grep -F \
+            "ASTRA_RUNTIME_MARKER: TEST_HOST_ENTITY_REGISTERED=true" \
+            runtime-server.log
+
+          if grep -E \
+            "Exception in thread|Caused by:|Could not execute entrypoint|ModResolutionException" \
+            runtime-server.log
+          then
+            echo "Runtime exception detected."
+            exit 1
+          fi
+
+          echo "ASTRA RUNTIME STARTUP GATE PASSED"
+
+      - name: Upload runtime evidence
+        if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: astra-microblocks-one-block-test
-          path: testmod/build/libs/astra-microblocks-0.1.0-test.jar
-          if-no-files-found: error
+          name: astra-microblocks-runtime-evidence
+          path: |
+            testmod/runtime-server.log
+            testmod/build/libs/*.jar
+          if-no-files-found: warn
