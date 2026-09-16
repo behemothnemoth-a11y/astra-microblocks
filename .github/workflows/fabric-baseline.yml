@@ -39,6 +39,7 @@ jobs:
         run: |
           set -euo pipefail
 
+          mkdir -p run
           cd run
 
           echo "eula=true" > eula.txt
