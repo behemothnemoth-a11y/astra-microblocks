@@ -36,3 +36,10 @@ processResources {
         expand(version: project.version)
     }
 }
+loom {
+    runs {
+        server {
+            property "astra.lifecycleTest", "true"
+        }
+    }
+}
