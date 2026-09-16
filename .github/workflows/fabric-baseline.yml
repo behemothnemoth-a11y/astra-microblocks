@@ -34,7 +34,77 @@ jobs:
           gradle clean build \
             --stacktrace \
             --no-daemon
+      - name: Run disposable world lifecycle test
+        shell: bash
+        run: |
+          set -euo pipefail
 
+          cd run
+
+          echo "eula=true" > eula.txt
+
+          cat > server.properties <<'EOF'
+          level-name=world
+          online-mode=false
+          spawn-protection=0
+          view-distance=2
+          simulation-distance=2
+          max-players=1
+          enable-command-block=false
+          EOF
+
+          cd ..
+
+          rm -f run/astra-test-phase.txt
+          rm -rf run/world
+
+          echo "=== ASTRA LIFECYCLE PHASE 0 ==="
+
+          gradle runServer \
+            --no-daemon \
+            --console=plain \
+            -Dastra.lifecycleTest=true \
+            | tee phase0.log
+
+          grep -F \
+            "ASTRA_TEST: PHASE0_PASS" \
+            phase0.log
+
+          test "$(cat run/astra-test-phase.txt)" = "1"
+
+          echo "=== ASTRA LIFECYCLE PHASE 1 ==="
+
+          gradle runServer \
+            --no-daemon \
+            --console=plain \
+            -Dastra.lifecycleTest=true \
+            | tee phase1.log
+
+          grep -F \
+            "ASTRA_TEST: CARVE_PERSISTENCE_PASS" \
+            phase1.log
+
+          grep -F \
+            "ASTRA_TEST: PHASE1_PASS" \
+            phase1.log
+
+          test "$(cat run/astra-test-phase.txt)" = "2"
+
+          echo "=== ASTRA LIFECYCLE PHASE 2 ==="
+
+          gradle runServer \
+            --no-daemon \
+            --console=plain \
+            -Dastra.lifecycleTest=true \
+            | tee phase2.log
+
+          grep -F \
+            "ASTRA_TEST: LIFECYCLE_PASS" \
+            phase2.log
+
+          test "$(cat run/astra-test-phase.txt)" = "3"
+
+          echo "ASTRA WORLD LIFECYCLE GATE PASSED"
       - name: Verify JAR contents
         shell: bash
         run: |
