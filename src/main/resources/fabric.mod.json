@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "astra_microblocks",
+  "version": "${version}",
+  "name": "Astra Microblocks",
+  "description": "High-detail microblock sculpting for Minecraft.",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "dev.astra.microblocks.AstraMicroblocks"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "26.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
