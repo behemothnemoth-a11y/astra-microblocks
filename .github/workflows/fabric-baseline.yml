@@ -1,0 +1,156 @@
+name: Fabric 26.2 Baseline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "9.5.1"
+
+      - name: Create Fabric 26.2 baseline
+        shell: bash
+        run: |
+          mkdir -p baseline/src/main/java/dev/astra/microblocks
+          mkdir -p baseline/src/main/resources
+
+          cat > baseline/settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  maven { url = 'https://maven.fabricmc.net/' }
+                  gradlePluginPortal()
+              }
+          }
+
+          rootProject.name = 'astra-microblocks-baseline'
+          EOF
+
+          cat > baseline/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2G
+          org.gradle.parallel=false
+          org.gradle.configuration-cache=false
+
+          minecraft_version=26.2
+          loader_version=0.19.5
+          loom_version=1.17.12
+          fabric_api_version=0.160.0+26.2
+
+          version=0.0.1-baseline
+          EOF
+
+          cat > baseline/build.gradle <<'EOF'
+          plugins {
+              id 'net.fabricmc.fabric-loom' version "${loom_version}"
+          }
+
+          group = 'dev.astra.microblocks'
+          version = project.version
+
+          base {
+              archivesName = 'astra-microblocks-baseline'
+          }
+
+          repositories {
+              mavenCentral()
+          }
+
+          dependencies {
+              minecraft "com.mojang:minecraft:${minecraft_version}"
+              implementation "net.fabricmc:fabric-loader:${loader_version}"
+              implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+          }
+
+          java {
+              toolchain.languageVersion = JavaLanguageVersion.of(25)
+          }
+
+          tasks.withType(JavaCompile).configureEach {
+              options.release = 25
+              options.encoding = 'UTF-8'
+          }
+
+          processResources {
+              inputs.property 'version', project.version
+
+              filesMatching('fabric.mod.json') {
+                  expand(version: project.version)
+              }
+          }
+          EOF
+
+          cat > baseline/src/main/resources/fabric.mod.json <<'EOF'
+          {
+            "schemaVersion": 1,
+            "id": "astra_microblocks_baseline",
+            "version": "${version}",
+            "name": "Astra Microblocks Baseline",
+            "environment": "*",
+            "entrypoints": {
+              "main": [
+                "dev.astra.microblocks.BaselineMod"
+              ]
+            },
+            "depends": {
+              "fabricloader": ">=0.19.5",
+              "minecraft": "26.2",
+              "java": ">=25",
+              "fabric-api": "*"
+            }
+          }
+          EOF
+
+          cat > baseline/src/main/java/dev/astra/microblocks/BaselineMod.java <<'EOF'
+          package dev.astra.microblocks;
+
+          import net.fabricmc.api.ModInitializer;
+
+          public final class BaselineMod implements ModInitializer {
+              @Override
+              public void onInitialize() {
+                  System.out.println(
+                      "Astra Microblocks Fabric 26.2 baseline loaded"
+                  );
+              }
+          }
+          EOF
+
+      - name: Show environment
+        run: |
+          java -version
+          gradle --version
+
+      - name: Build Fabric baseline
+        run: gradle -p baseline clean build --stacktrace --no-daemon
+
+      - name: Inspect JAR
+        run: |
+          ls -lah baseline/build/libs/
+          jar tf baseline/build/libs/astra-microblocks-baseline-0.0.1-baseline.jar \
+            | grep -E 'fabric.mod.json|BaselineMod.class'
+
+      - name: Upload test JAR
+        uses: actions/upload-artifact@v7
+        with:
+          name: astra-microblocks-fabric-baseline
+          path: baseline/build/libs/astra-microblocks-baseline-0.0.1-baseline.jar
+          if-no-files-found: error
