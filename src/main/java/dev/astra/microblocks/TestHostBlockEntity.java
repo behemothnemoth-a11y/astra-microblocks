@@ -15,17 +15,17 @@ import net.minecraft.world.level.storage.ValueOutput;
 /**
  * Block entity backing one sculptable 16x16x16 host.
  *
- * The MicroblockGrid is now the authoritative geometry state.
+ * The MicroblockGrid is the authoritative geometry state.
  */
 public final class TestHostBlockEntity extends BlockEntity {
+
+    private static final int GRID_WORDS = 64;
 
     private MicroblockGrid grid =
             new MicroblockGrid();
 
     /*
-     * One-level undo for the current prototype.
-     *
-     * Later this becomes a proper edit-history system.
+     * Prototype one-level undo.
      */
     private MicroblockGrid undoGrid;
 
@@ -74,9 +74,6 @@ public final class TestHostBlockEntity extends BlockEntity {
         return revision;
     }
 
-    /**
-     * Removes one independently addressed microcell.
-     */
     public boolean removeCell(
             int x,
             int y,
@@ -98,9 +95,6 @@ public final class TestHostBlockEntity extends BlockEntity {
         return changed;
     }
 
-    /**
-     * Adds one independently addressed microcell.
-     */
     public boolean addCell(
             int x,
             int y,
@@ -123,19 +117,16 @@ public final class TestHostBlockEntity extends BlockEntity {
     }
 
     /**
-     * Compatibility method for the original proof-of-concept
-     * lifecycle test.
-     *
-     * It is no longer special geometry. It simply edits cell
-     * (15,15,15) through the real grid.
+     * Compatibility wrapper for the original proof-of-concept.
      */
     public void carveCorner() {
-        removeCell(15, 15, 15);
+        removeCell(
+                15,
+                15,
+                15
+        );
     }
 
-    /**
-     * Compatibility query for the original block code.
-     */
     public boolean isCarved() {
         return !grid.isOccupied(
                 15,
@@ -144,10 +135,6 @@ public final class TestHostBlockEntity extends BlockEntity {
         );
     }
 
-    /**
-     * Restores the complete grid snapshot from immediately
-     * before the most recent successful edit.
-     */
     public void undo() {
         if (undoGrid == null) {
             return;
@@ -189,13 +176,64 @@ public final class TestHostBlockEntity extends BlockEntity {
                 state,
                 Block.UPDATE_ALL
         );
+    }
+
+    /**
+     * Writes one grid as 64 individual longs.
+     *
+     * This avoids relying on a long-array read API that
+     * Minecraft 26.2 ValueInput does not expose.
+     */
+    private static void writeGrid(
+            ValueOutput output,
+            String prefix,
+            MicroblockGrid source
+    ) {
+        long[] data =
+                source.toLongArray();
+
+        for (int i = 0; i < GRID_WORDS; i++) {
+            output.putLong(
+                    prefix + i,
+                    data[i]
+            );
+        }
+    }
+
+    /**
+     * Reads one grid from 64 individual longs.
+     */
+    private static MicroblockGrid readGrid(
+            ValueInput input,
+            String prefix
+    ) {
+        long[] data =
+                new long[GRID_WORDS];
+
+        for (int i = 0; i < GRID_WORDS; i++) {
+            data[i] =
+                    input.getLongOr(
+                            prefix + i,
+                            -1L
+                    );
+        }
+
+        return MicroblockGrid.fromLongArray(
+                data
+        );
     }    @Override
     protected void saveAdditional(
             ValueOutput output
     ) {
-        output.putLongArray(
-                "microblocks",
-                grid.toLongArray()
+        output.putBoolean(
+                "grid_format_v1",
+                true
+        );
+
+        writeGrid(
+                output,
+                "grid_",
+                grid
         );
 
         output.putLong(
@@ -203,15 +241,19 @@ public final class TestHostBlockEntity extends BlockEntity {
                 revision
         );
 
+        boolean hasUndo =
+                undoGrid != null;
+
         output.putBoolean(
                 "has_undo",
-                undoGrid != null
+                hasUndo
         );
 
-        if (undoGrid != null) {
-            output.putLongArray(
-                    "undo_microblocks",
-                    undoGrid.toLongArray()
+        if (hasUndo) {
+            writeGrid(
+                    output,
+                    "undo_",
+                    undoGrid
             );
         }
 
@@ -224,27 +266,38 @@ public final class TestHostBlockEntity extends BlockEntity {
     ) {
         super.loadAdditional(input);
 
-        /*
-         * New 4096-cell format.
-         *
-         * If data is absent or malformed, retain a full grid
-         * rather than allowing corrupt geometry into the host.
-         */
-        long[] stored =
-                input.getLongArray(
-                        "microblocks"
-                ).orElse(null);
+        boolean gridFormat =
+                input.getBooleanOr(
+                        "grid_format_v1",
+                        false
+                );
 
-        if (stored != null
-                && stored.length == 64) {
-
+        if (gridFormat) {
             grid =
-                    MicroblockGrid.fromLongArray(
-                            stored
+                    readGrid(
+                            input,
+                            "grid_"
                     );
         } else {
+            /*
+             * Migration from the original boolean prototype.
+             */
             grid =
                     new MicroblockGrid();
+
+            boolean oldCarved =
+                    input.getBooleanOr(
+                            "carved",
+                            false
+                    );
+
+            if (oldCarved) {
+                grid.remove(
+                        15,
+                        15,
+                        15
+                );
+            }
         }
 
         revision =
@@ -259,45 +312,18 @@ public final class TestHostBlockEntity extends BlockEntity {
                         false
                 );
 
-        if (hasUndo) {
-            long[] storedUndo =
-                    input.getLongArray(
-                            "undo_microblocks"
-                    ).orElse(null);
-
-            if (storedUndo != null
-                    && storedUndo.length == 64) {
-
-                undoGrid =
-                        MicroblockGrid.fromLongArray(
-                                storedUndo
-                        );
-            } else {
-                undoGrid = null;
-            }
-        } else {
-            undoGrid = null;
-        }
-
-        /*
-         * Migration support for our original boolean test
-         * format. This can eventually disappear once that
-         * prototype format is no longer relevant.
-         */
-        if (stored == null) {
-            boolean oldCarved =
-                    input.getBooleanOr(
-                            "carved",
-                            false
+        if (gridFormat && hasUndo) {
+            undoGrid =
+                    readGrid(
+                            input,
+                            "undo_"
                     );
-
-            if (oldCarved) {
-                grid.remove(
-                        15,
-                        15,
-                        15
-                );
-            }
+        } else {
+            /*
+             * Old-format undo cannot restore a complete grid,
+             * so we deliberately discard it during migration.
+             */
+            undoGrid = null;
         }
     }
 
