@@ -118,6 +118,7 @@ public final class LifecycleTest {
 testMicroblockGrid();
 MicroblockShapeTest.run();
 MicroblockMesherTest.run();
+MicroblockHitResolverTest.run();
 
 ServerLevel level =
         server.overworld();
