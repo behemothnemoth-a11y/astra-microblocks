@@ -121,7 +121,7 @@ MicroblockMesherTest.run();
 MicroblockHitResolverTest.run();
 
 ServerLevel level =
-        server.overworld();
+        server.overworld();AstraChiselTest.run(level);
         require(
                 level.setBlock(
                         TEST_POS,
