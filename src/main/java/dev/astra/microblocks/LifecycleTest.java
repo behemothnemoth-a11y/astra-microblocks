@@ -115,7 +115,7 @@ public final class LifecycleTest {
 
         testMicroblockGrid();
 
-      testMicroblockGrid();
+testMicroblockGrid();
 MicroblockShapeTest.run();
 MicroblockMesherTest.run();
 
