@@ -81,8 +81,12 @@ jobs:
             -Dastra.lifecycleTest=true \
             | tee phase1.log
 
+                grep -F \
+            "ASTRA_TEST: ARBITRARY_SHAPE_PERSISTENCE_PASS" \
+            phase1.log
+
           grep -F \
-            "ASTRA_TEST: CARVE_PERSISTENCE_PASS" \
+            "ASTRA_TEST: ARBITRARY_UNDO_PASS" \
             phase1.log
 
           grep -F \
