@@ -12,10 +12,23 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 
+/**
+ * Block entity backing one sculptable 16x16x16 host.
+ *
+ * The MicroblockGrid is now the authoritative geometry state.
+ */
 public final class TestHostBlockEntity extends BlockEntity {
 
-    private boolean carved;
-    private boolean canUndo;
+    private MicroblockGrid grid =
+            new MicroblockGrid();
+
+    /*
+     * One-level undo for the current prototype.
+     *
+     * Later this becomes a proper edit-history system.
+     */
+    private MicroblockGrid undoGrid;
+
     private long revision;
 
     public TestHostBlockEntity(
@@ -29,39 +42,134 @@ public final class TestHostBlockEntity extends BlockEntity {
         );
     }
 
-    public boolean isCarved() {
-        return carved;
+    public MicroblockGrid gridCopy() {
+        return grid.copy();
+    }
+
+    public boolean isOccupied(
+            int x,
+            int y,
+            int z
+    ) {
+        return grid.isOccupied(x, y, z);
+    }
+
+    public int occupiedCount() {
+        return grid.occupiedCount();
+    }
+
+    public boolean isFull() {
+        return grid.isFull();
+    }
+
+    public boolean isEmpty() {
+        return grid.isEmpty();
     }
 
     public boolean canUndo() {
-        return canUndo;
+        return undoGrid != null;
     }
 
     public long revision() {
         return revision;
     }
 
+    /**
+     * Removes one independently addressed microcell.
+     */
+    public boolean removeCell(
+            int x,
+            int y,
+            int z
+    ) {
+        if (!grid.isOccupied(x, y, z)) {
+            return false;
+        }
+
+        beginEdit();
+
+        boolean changed =
+                grid.remove(x, y, z);
+
+        if (changed) {
+            finishEdit();
+        }
+
+        return changed;
+    }
+
+    /**
+     * Adds one independently addressed microcell.
+     */
+    public boolean addCell(
+            int x,
+            int y,
+            int z
+    ) {
+        if (grid.isOccupied(x, y, z)) {
+            return false;
+        }
+
+        beginEdit();
+
+        boolean changed =
+                grid.add(x, y, z);
+
+        if (changed) {
+            finishEdit();
+        }
+
+        return changed;
+    }
+
+    /**
+     * Compatibility method for the original proof-of-concept
+     * lifecycle test.
+     *
+     * It is no longer special geometry. It simply edits cell
+     * (15,15,15) through the real grid.
+     */
     public void carveCorner() {
-        if (carved) {
+        removeCell(15, 15, 15);
+    }
+
+    /**
+     * Compatibility query for the original block code.
+     */
+    public boolean isCarved() {
+        return !grid.isOccupied(
+                15,
+                15,
+                15
+        );
+    }
+
+    /**
+     * Restores the complete grid snapshot from immediately
+     * before the most recent successful edit.
+     */
+    public void undo() {
+        if (undoGrid == null) {
             return;
         }
 
-        carved = true;
-        canUndo = true;
+        MicroblockGrid previous =
+                undoGrid;
+
+        undoGrid = null;
+        grid = previous;
+
         revision++;
 
         publish();
     }
 
-    public void undo() {
-        if (!canUndo || !carved) {
-            return;
-        }
+    private void beginEdit() {
+        undoGrid = grid.copy();
+    }
 
-        carved = false;
-        canUndo = false;
+    private void finishEdit() {
         revision++;
-
         publish();
     }
 
@@ -72,7 +180,8 @@ public final class TestHostBlockEntity extends BlockEntity {
             return;
         }
 
-        BlockState state = getBlockState();
+        BlockState state =
+                getBlockState();
 
         level.sendBlockUpdated(
                 worldPosition,
@@ -80,47 +189,133 @@ public final class TestHostBlockEntity extends BlockEntity {
                 state,
                 Block.UPDATE_ALL
         );
-    }
+    }    @Override
+    protected void saveAdditional(
+            ValueOutput output
+    ) {
+        output.putLongArray(
+                "microblocks",
+                grid.toLongArray()
+        );
 
-    @Override
-    protected void saveAdditional(ValueOutput output) {
-        output.putBoolean("carved", carved);
-        output.putBoolean("can_undo", canUndo);
-        output.putLong("revision", revision);
+        output.putLong(
+                "revision",
+                revision
+        );
+
+        output.putBoolean(
+                "has_undo",
+                undoGrid != null
+        );
+
+        if (undoGrid != null) {
+            output.putLongArray(
+                    "undo_microblocks",
+                    undoGrid.toLongArray()
+            );
+        }
 
         super.saveAdditional(output);
     }
 
     @Override
-    protected void loadAdditional(ValueInput input) {
+    protected void loadAdditional(
+            ValueInput input
+    ) {
         super.loadAdditional(input);
 
-        carved = input.getBooleanOr(
-                "carved",
-                false
-        );
+        /*
+         * New 4096-cell format.
+         *
+         * If data is absent or malformed, retain a full grid
+         * rather than allowing corrupt geometry into the host.
+         */
+        long[] stored =
+                input.getLongArray(
+                        "microblocks"
+                ).orElse(null);
 
-        canUndo = input.getBooleanOr(
-                "can_undo",
-                false
-        );
+        if (stored != null
+                && stored.length == 64) {
 
-        revision = input.getLongOr(
-                "revision",
-                0L
-        );
+            grid =
+                    MicroblockGrid.fromLongArray(
+                            stored
+                    );
+        } else {
+            grid =
+                    new MicroblockGrid();
+        }
+
+        revision =
+                input.getLongOr(
+                        "revision",
+                        0L
+                );
+
+        boolean hasUndo =
+                input.getBooleanOr(
+                        "has_undo",
+                        false
+                );
+
+        if (hasUndo) {
+            long[] storedUndo =
+                    input.getLongArray(
+                            "undo_microblocks"
+                    ).orElse(null);
+
+            if (storedUndo != null
+                    && storedUndo.length == 64) {
+
+                undoGrid =
+                        MicroblockGrid.fromLongArray(
+                                storedUndo
+                        );
+            } else {
+                undoGrid = null;
+            }
+        } else {
+            undoGrid = null;
+        }
+
+        /*
+         * Migration support for our original boolean test
+         * format. This can eventually disappear once that
+         * prototype format is no longer relevant.
+         */
+        if (stored == null) {
+            boolean oldCarved =
+                    input.getBooleanOr(
+                            "carved",
+                            false
+                    );
+
+            if (oldCarved) {
+                grid.remove(
+                        15,
+                        15,
+                        15
+                );
+            }
+        }
     }
 
     @Override
     public CompoundTag getUpdateTag(
             HolderLookup.Provider registryLookup
     ) {
-        return saveWithoutMetadata(registryLookup);
+        return saveWithoutMetadata(
+                registryLookup
+        );
     }
 
     @Override
     public Packet<ClientGamePacketListener>
             getUpdatePacket() {
-        return ClientboundBlockEntityDataPacket.create(this);
+
+        return ClientboundBlockEntityDataPacket.create(
+                this
+        );
     }
 }
