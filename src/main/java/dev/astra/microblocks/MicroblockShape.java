@@ -5,26 +5,27 @@ import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
+import java.util.List;
+
 /**
  * Converts a 16x16x16 MicroblockGrid into Minecraft geometry.
  *
- * This first implementation intentionally favors correctness
- * over optimization: every occupied microcell contributes one
- * exact 1/16-scale cuboid.
+ * Production implementation:
  *
- * Later we can replace the internal implementation with greedy
- * box merging without changing callers.
+ * grid
+ *   -> greedy MicroblockMesher
+ *   -> merged rectangular cuboids
+ *   -> Minecraft VoxelShape
+ *
+ * The public geometry contract remains exact 1/16 resolution.
  */
 public final class MicroblockShape {
-
-    private static final double CELL_SIZE =
-            1.0 / MicroblockGrid.SIZE;
 
     private MicroblockShape() {
     }
 
     /**
-     * Builds the complete occupied shape for one host block.
+     * Builds the complete occupied physical shape.
      */
     public static VoxelShape build(
             MicroblockGrid grid
@@ -43,91 +44,86 @@ public final class MicroblockShape {
             return Shapes.block();
         }
 
+        List<MicroblockMesher.Cuboid> cuboids =
+                MicroblockMesher.mesh(grid);
+
         VoxelShape shape =
                 Shapes.empty();
 
-        for (int y = 0;
-             y < MicroblockGrid.SIZE;
-             y++) {
+        for (
+                MicroblockMesher.Cuboid cuboid
+                : cuboids
+        ) {
+            VoxelShape box =
+                    cuboidShape(cuboid);
 
-            for (int z = 0;
-                 z < MicroblockGrid.SIZE;
-                 z++) {
-
-                for (int x = 0;
-                     x < MicroblockGrid.SIZE;
-                     x++) {
-
-                    if (!grid.isOccupied(
-                            x,
-                            y,
-                            z
-                    )) {
-                        continue;
-                    }
-
-                    VoxelShape cell =
-                            cellShape(
-                                    x,
-                                    y,
-                                    z
-                            );
-
-                    shape =
-                            Shapes.joinUnoptimized(
-                                    shape,
-                                    cell,
-                                    BooleanOp.OR
-                            );
-                }
-            }
+            shape =
+                    Shapes.joinUnoptimized(
+                            shape,
+                            box,
+                            BooleanOp.OR
+                    );
         }
 
         return shape.optimize();
     }
 
     /**
-     * Builds exactly one 1/16-scale cell.
+     * Converts one mesher cuboid into Minecraft's
+     * 0..16 block-model coordinate system.
+     *
+     * Mesher coordinates already use microcell boundaries,
+     * so no floating-point conversion is necessary here:
+     *
+     * cell boundary 0  -> Block.box coordinate 0
+     * cell boundary 1  -> Block.box coordinate 1
+     * ...
+     * cell boundary 16 -> Block.box coordinate 16
+     */
+    public static VoxelShape cuboidShape(
+            MicroblockMesher.Cuboid cuboid
+    ) {
+        if (cuboid == null) {
+            throw new IllegalArgumentException(
+                    "cuboid cannot be null"
+            );
+        }
+
+        return Block.box(
+                cuboid.minX(),
+                cuboid.minY(),
+                cuboid.minZ(),
+                cuboid.maxX(),
+                cuboid.maxY(),
+                cuboid.maxZ()
+        );
+    }
+
+    /**
+     * Builds exactly one 1/16-scale microcell.
+     *
+     * Retained as part of the geometry API and for regression
+     * testing even though production build() now uses merged
+     * cuboids.
      */
     public static VoxelShape cellShape(
             int x,
             int y,
             int z
     ) {
-        /*
-         * Reuse MicroblockGrid's coordinate validation.
-         */
         MicroblockGrid.index(
                 x,
                 y,
                 z
         );
 
-        double minX =
-                x * CELL_SIZE;
-
-        double minY =
-                y * CELL_SIZE;
-
-        double minZ =
-                z * CELL_SIZE;
-
-        double maxX =
-                (x + 1) * CELL_SIZE;
-
-        double maxY =
-                (y + 1) * CELL_SIZE;
-
-        double maxZ =
-                (z + 1) * CELL_SIZE;
-
         return Block.box(
-                minX * 16.0,
-                minY * 16.0,
-                minZ * 16.0,
-                maxX * 16.0,
-                maxY * 16.0,
-                maxZ * 16.0
+                x,
+                y,
+                z,
+                x + 1,
+                y + 1,
+                z + 1
         );
     }
 }
