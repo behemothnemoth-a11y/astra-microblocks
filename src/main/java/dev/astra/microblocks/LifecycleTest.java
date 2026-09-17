@@ -115,9 +115,11 @@ public final class LifecycleTest {
 
         testMicroblockGrid();
 
-        ServerLevel level =
-                server.overworld();
+      testMicroblockGrid();
+MicroblockShapeTest.run();
 
+ServerLevel level =
+        server.overworld();
         require(
                 level.setBlock(
                         TEST_POS,
