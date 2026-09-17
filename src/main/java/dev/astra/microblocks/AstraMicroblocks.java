@@ -14,23 +14,38 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 
-public final class AstraMicroblocks implements ModInitializer {
-    public static final String MOD_ID = "astra_microblocks";
+public final class AstraMicroblocks
+        implements ModInitializer {
+
+    public static final String MOD_ID =
+            "astra_microblocks";
 
     public static Identifier id(String path) {
-        return Identifier.fromNamespaceAndPath(MOD_ID, path);
+        return Identifier.fromNamespaceAndPath(
+                MOD_ID,
+                path
+        );
     }
 
-    private static final ResourceKey<Block> TEST_HOST_KEY =
+    private static final ResourceKey<Block>
+            TEST_HOST_KEY =
             ResourceKey.create(
                     BuiltInRegistries.BLOCK.key(),
                     id("test_host")
             );
 
-    private static final ResourceKey<Item> TEST_HOST_ITEM_KEY =
+    private static final ResourceKey<Item>
+            TEST_HOST_ITEM_KEY =
             ResourceKey.create(
                     BuiltInRegistries.ITEM.key(),
                     id("test_host")
+            );
+
+    private static final ResourceKey<Item>
+            ASTRA_CHISEL_KEY =
+            ResourceKey.create(
+                    BuiltInRegistries.ITEM.key(),
+                    id("astra_chisel")
             );
 
     public static final TestHostBlock TEST_HOST =
@@ -40,11 +55,18 @@ public final class AstraMicroblocks implements ModInitializer {
                             .setId(TEST_HOST_KEY)
             );
 
+    public static final AstraChiselItem ASTRA_CHISEL =
+            new AstraChiselItem(
+                    new Item.Properties()
+                            .setId(ASTRA_CHISEL_KEY)
+            );
+
     public static BlockEntityType<TestHostBlockEntity>
             TEST_HOST_ENTITY;
 
     @Override
     public void onInitialize() {
+
         Registry.register(
                 BuiltInRegistries.BLOCK,
                 TEST_HOST_KEY,
@@ -62,22 +84,30 @@ public final class AstraMicroblocks implements ModInitializer {
                 )
         );
 
-        TEST_HOST_ENTITY = Registry.register(
-                BuiltInRegistries.BLOCK_ENTITY_TYPE,
-                id("test_host"),
-                FabricBlockEntityTypeBuilder
-                        .create(
-                                TestHostBlockEntity::new,
-                                TEST_HOST
-                        )
-                        .build()
+        Registry.register(
+                BuiltInRegistries.ITEM,
+                ASTRA_CHISEL_KEY,
+                ASTRA_CHISEL
         );
-System.out.println(
-        "Astra Microblocks initialized on Minecraft 26.2"
-);
-if (Boolean.getBoolean("astra.lifecycleTest")) {
-    LifecycleTest.register();
-}
+
+        TEST_HOST_ENTITY =
+                Registry.register(
+                        BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                        id("test_host"),
+                        FabricBlockEntityTypeBuilder
+                                .create(
+                                        TestHostBlockEntity::new,
+                                        TEST_HOST
+                                )
+                                .build()
+                );
+
+        if (Boolean.getBoolean(
+                "astra.lifecycleTest"
+        )) {
+            LifecycleTest.register();
+        }
+
         System.out.println(
                 "Astra Microblocks initialized on Minecraft 26.2"
         );
