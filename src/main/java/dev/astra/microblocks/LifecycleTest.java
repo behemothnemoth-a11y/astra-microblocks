@@ -14,16 +14,27 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Temporary automated world-lifecycle test.
+ * Automated world-lifecycle and microblock-grid test.
  *
  * Phase 0:
- *   place host -> carve -> save -> stop
+ *   test 4096-cell grid
+ *   place host
+ *   carve
+ *   save
+ *   stop
  *
  * Phase 1:
- *   restart -> verify carve persisted -> undo -> save -> stop
+ *   restart
+ *   verify carve persisted
+ *   undo
+ *   save
+ *   stop
  *
  * Phase 2:
- *   restart -> verify undo persisted -> PASS -> stop
+ *   restart
+ *   verify undo persisted
+ *   PASS
+ *   stop
  */
 public final class LifecycleTest {
 
@@ -75,6 +86,8 @@ public final class LifecycleTest {
     private static void phaseZero(
             MinecraftServer server
     ) throws IOException {
+
+        testMicroblockGrid();
 
         ServerLevel level = server.overworld();
 
@@ -299,6 +312,207 @@ public final class LifecycleTest {
         );
 
         server.halt(false);
+    }    private static void testMicroblockGrid() {
+        MicroblockGrid grid =
+                new MicroblockGrid();
+
+        require(
+                grid.isFull(),
+                "new grid was not full"
+        );
+
+        require(
+                grid.occupiedCount() == 4096,
+                "full grid did not contain 4096 cells"
+        );
+
+        require(
+                grid.remove(15, 15, 15),
+                "could not remove corner cell"
+        );
+
+        require(
+                !grid.isOccupied(15, 15, 15),
+                "removed corner remained occupied"
+        );
+
+        require(
+                grid.occupiedCount() == 4095,
+                "corner removal did not produce 4095 cells"
+        );
+
+        require(
+                !grid.remove(15, 15, 15),
+                "duplicate removal reported a change"
+        );
+
+        require(
+                grid.remove(0, 0, 0),
+                "could not remove opposite corner"
+        );
+
+        require(
+                !grid.isOccupied(0, 0, 0),
+                "removed opposite corner remained occupied"
+        );
+
+        require(
+                grid.occupiedCount() == 4094,
+                "second removal did not produce 4094 cells"
+        );
+
+        MicroblockGrid copy =
+                grid.copy();
+
+        require(
+                copy.equals(grid),
+                "grid copy was not identical"
+        );
+
+        require(
+                copy != grid,
+                "grid copy was not independent"
+        );
+
+        long[] serialized =
+                grid.toLongArray();
+
+        require(
+                serialized.length == 64,
+                "serialized grid was not 64 longs"
+        );
+
+        MicroblockGrid restored =
+                MicroblockGrid.fromLongArray(
+                        serialized
+                );
+
+        require(
+                restored.equals(grid),
+                "serialized grid did not round-trip"
+        );
+
+        /*
+         * Verify the serialization boundary is defensive.
+         */
+        serialized[0] = 0L;
+
+        require(
+                restored.equals(grid),
+                "external array mutated restored grid"
+        );
+
+        restored.clear();
+
+        require(
+                restored.isEmpty(),
+                "clear did not empty grid"
+        );
+
+        require(
+                restored.occupiedCount() == 0,
+                "empty grid count was not 0"
+        );
+
+        restored.fill();
+
+        require(
+                restored.isFull(),
+                "fill did not restore full grid"
+        );
+
+        require(
+                restored.occupiedCount() == 4096,
+                "refilled grid did not contain 4096 cells"
+        );
+
+        require(
+                MicroblockGrid.index(
+                        0,
+                        0,
+                        0
+                ) == 0,
+                "origin index was incorrect"
+        );
+
+        require(
+                MicroblockGrid.index(
+                        15,
+                        15,
+                        15
+                ) == 4095,
+                "maximum index was not 4095"
+        );
+
+        /*
+         * Prove all 4096 XYZ coordinates map to unique
+         * bit positions.
+         */
+        boolean[] seen =
+                new boolean[MicroblockGrid.CELL_COUNT];
+
+        int visited = 0;
+
+        for (int y = 0; y < MicroblockGrid.SIZE; y++) {
+            for (int z = 0; z < MicroblockGrid.SIZE; z++) {
+                for (int x = 0; x < MicroblockGrid.SIZE; x++) {
+
+                    int index =
+                            MicroblockGrid.index(
+                                    x,
+                                    y,
+                                    z
+                            );
+
+                    require(
+                            !seen[index],
+                            "duplicate microblock index "
+                            + index
+                    );
+
+                    seen[index] = true;
+                    visited++;
+                }
+            }
+        }
+
+        require(
+                visited == 4096,
+                "did not visit all 4096 coordinates"
+        );
+
+        /*
+         * Basic bounds tests.
+         */
+        boolean rejectedNegative = false;
+
+        try {
+            MicroblockGrid.index(-1, 0, 0);
+        } catch (IndexOutOfBoundsException expected) {
+            rejectedNegative = true;
+        }
+
+        require(
+                rejectedNegative,
+                "negative coordinate was accepted"
+        );
+
+        boolean rejectedSixteen = false;
+
+        try {
+            MicroblockGrid.index(16, 0, 0);
+        } catch (IndexOutOfBoundsException expected) {
+            rejectedSixteen = true;
+        }
+
+        require(
+                rejectedSixteen,
+                "coordinate 16 was accepted"
+        );
+
+        System.out.println(
+                "ASTRA_TEST: MICROBLOCK_GRID_PASS"
+        );
     }
 
     private static int readPhase()
