@@ -285,7 +285,7 @@ public final class MicroblockHitResolverTest {
         assertCell(
                 pos,
                 new Vec3(
-                        100.5 / 16.0 + 100.0,
+                        8.5 / 16.0 + 100.0,
                         3.5 / 16.0 + 64.0,
                         12.5 / 16.0 - 50.0
                 ),
