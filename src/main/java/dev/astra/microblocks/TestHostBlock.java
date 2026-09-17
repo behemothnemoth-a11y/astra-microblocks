@@ -1,57 +1,28 @@
 package dev.astra.microblocks;
 
 import com.mojang.serialization.MapCodec;
-import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
+/**
+ * Prototype sculptable host block.
+ *
+ * Its physical Minecraft geometry is now generated directly
+ * from the authoritative 16x16x16 MicroblockGrid.
+ */
 public final class TestHostBlock extends BaseEntityBlock {
 
-    private static final MapCodec<TestHostBlock> CODEC =
+    public static final MapCodec<TestHostBlock> CODEC =
             simpleCodec(TestHostBlock::new);
-
-    private static final VoxelShape SOLID =
-            Shapes.block();
-
-    /*
-     * First real microblock geometry:
-     *
-     * Conceptual resolution: 16 x 16 x 16
-     * Total cells: 4096
-     *
-     * CARVED removes exactly:
-     * x = 15
-     * y = 15
-     * z = 15
-     *
-     * leaving 4095 occupied cells.
-     */
-    private static final VoxelShape CARVED =
-            Shapes.or(
-                    box(
-                            0, 0, 0,
-                            15, 16, 16
-                    ),
-                    box(
-                            15, 0, 0,
-                            16, 15, 16
-                    ),
-                    box(
-                            15, 15, 0,
-                            16, 16, 15
-                    )
-            );
 
     public TestHostBlock(Properties properties) {
         super(properties);
@@ -62,72 +33,28 @@ public final class TestHostBlock extends BaseEntityBlock {
         return CODEC;
     }
 
-    @Nullable
     @Override
     public BlockEntity newBlockEntity(
             BlockPos pos,
             BlockState state
     ) {
-        return new TestHostBlockEntity(pos, state);
+        return new TestHostBlockEntity(
+                pos,
+                state
+        );
     }
 
     @Override
-    protected InteractionResult useWithoutItem(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Player player,
-            BlockHitResult hit
+    protected RenderShape getRenderShape(
+            BlockState state
     ) {
-        /*
-         * Client acknowledges the interaction.
-         * Actual state mutation happens only on the server.
-         */
-        if (level.isClientSide()) {
-            return InteractionResult.SUCCESS;
-        }
-
-        if (!(level.getBlockEntity(pos)
-                instanceof TestHostBlockEntity host)) {
-            return InteractionResult.PASS;
-        }
-
-        /*
-         * Temporary testing controls:
-         *
-         * normal empty-hand click = carve
-         * sneak + empty-hand click = undo
-         *
-         * These are NOT the eventual chisel controls.
-         */
-        if (player.isShiftKeyDown()) {
-            host.undo();
-        } else {
-            host.carveCorner();
-        }
-
-        return InteractionResult.SUCCESS;
+        return RenderShape.MODEL;
     }
 
-    public boolean isCornerCarved(
-            BlockGetter level,
-            BlockPos pos
-    ) {
-        return level.getBlockEntity(pos)
-                instanceof TestHostBlockEntity host
-                && host.isCarved();
-    }
-
-    @Override
-    protected VoxelShape getShape(
-            BlockState state,
-            BlockGetter level,
-            BlockPos pos,
-            CollisionContext context
-    ) {
-        return shapeFor(level, pos);
-    }
-
+    /**
+     * Generates the actual physical collision geometry
+     * from the block entity's 4096-cell occupancy grid.
+     */
     @Override
     protected VoxelShape getCollisionShape(
             BlockState state,
@@ -135,17 +62,70 @@ public final class TestHostBlock extends BaseEntityBlock {
             BlockPos pos,
             CollisionContext context
     ) {
-        return shapeFor(level, pos);
+        return microblockShape(
+                level,
+                pos
+        );
     }
 
-    private VoxelShape shapeFor(
+    /**
+     * Generates the player selection/outline geometry from
+     * the same grid so collision and selection agree.
+     */
+    @Override
+    protected VoxelShape getShape(
+            BlockState state,
+            BlockGetter level,
+            BlockPos pos,
+            CollisionContext context
+    ) {
+        return microblockShape(
+                level,
+                pos
+        );
+    }
+
+    /**
+     * Shared geometry lookup.
+     *
+     * A missing block entity gets a conservative full-block
+     * fallback. That prevents transient loading states from
+     * accidentally creating holes in the world.
+     */
+    private VoxelShape microblockShape(
             BlockGetter level,
             BlockPos pos
     ) {
-        if (isCornerCarved(level, pos)) {
-            return CARVED;
+        BlockEntity blockEntity =
+                level.getBlockEntity(pos);
+
+        if (!(blockEntity
+                instanceof TestHostBlockEntity host)) {
+
+            return Shapes.block();
         }
 
-        return SOLID;
+        return MicroblockShape.build(
+                host.gridCopy()
+        );
+    }
+
+    /**
+     * Compatibility query retained for the lifecycle harness.
+     */
+    public boolean isCornerCarved(
+            Level level,
+            BlockPos pos
+    ) {
+        BlockEntity blockEntity =
+                level.getBlockEntity(pos);
+
+        return blockEntity
+                instanceof TestHostBlockEntity host
+                && !host.isOccupied(
+                        15,
+                        15,
+                        15
+                );
     }
 }
