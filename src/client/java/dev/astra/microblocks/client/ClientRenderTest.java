@@ -42,6 +42,7 @@ public final class ClientRenderTest {
     private static void run(Minecraft client) {
         verifyChiselItem(client);
         verifyInspector(client);
+        verifyMaterials(client);
         var host = new TestHostBlockEntity(BlockPos.ZERO, AstraMicroblocks.TEST_HOST.defaultBlockState());
         var registered = client.getBlockEntityRenderDispatcher()
                 .<TestHostBlockEntity, TestHostRenderState>getRenderer(host);
@@ -120,6 +121,73 @@ public final class ClientRenderTest {
         require(TestHostBlockEntityRenderer.buildMesh(empty, sprite).size() == 0, "empty grid rendered surfaces");
     }
 
+    private static void verifyMaterials(Minecraft client) {
+        var stone = new TestHostBlockEntity(BlockPos.ZERO, AstraMicroblocks.TEST_HOST.defaultBlockState());
+        var renderer = (TestHostBlockEntityRenderer) client.getBlockEntityRenderDispatcher()
+                .<TestHostBlockEntity, TestHostRenderState>getRenderer(stone);
+        var stoneState = renderer.createRenderState();
+        renderer.extractRenderState(stone, stoneState, 0, Vec3.ZERO, null);
+        var originalStone = stoneState.mesh;
+        for (var block : new dev.astra.microblocks.TestHostBlock[] {AstraMicroblocks.TEST_HOST, AstraMicroblocks.OAK_HOST}) {
+            var host = new TestHostBlockEntity(BlockPos.ZERO, block.defaultBlockState());
+            require(client.getBlockEntityRenderDispatcher().<TestHostBlockEntity, TestHostRenderState>getRenderer(host) == renderer, "material must share registered renderer");
+            var state = renderer.createRenderState();
+            renderer.extractRenderState(host, state, 0, Vec3.ZERO, null);
+            require(state.mesh.size() == 1536, "full material mesh");
+            verifyMesh(client, host, state.mesh);
+            var fullMesh = state.mesh;
+            renderer.extractRenderState(host, state, 0, Vec3.ZERO, null);
+            require(state.mesh == fullMesh, "material cache miss without edits");
+            for (var mode : dev.astra.microblocks.ChiselMode.values()) {
+                var mask = mode.selection(new dev.astra.microblocks.MicroblockHitResolver.Cell(7,15,8),
+                        net.minecraft.core.Direction.UP);
+                require(host.editCells(mask,dev.astra.microblocks.ChiselOperation.CUT)>0,"material render cut");
+                renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
+                verifyMesh(client,host,state.mesh);
+                var cutMesh = state.mesh;
+                host.editCells(mask,dev.astra.microblocks.ChiselOperation.ADD);
+                renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
+                require(state.mesh!=cutMesh && state.mesh.size()==1536,"material repair mesh");
+                verifyMesh(client,host,state.mesh);
+                require(host.undoEdit(),"material mesh undo");
+                renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
+                verifyMesh(client,host,state.mesh);
+                require(host.redoEdit(),"material mesh redo");
+                renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
+                verifyMesh(client,host,state.mesh);
+            }
+            verifyBlockItem(client, block);
+        }
+        renderer.extractRenderState(stone,stoneState,0,Vec3.ZERO,null);
+        require(stoneState.mesh == originalStone, "other material polluted stone cache");
+        // A same-position, same-revision replacement must use the new material's UVs.
+        var oak = new TestHostBlockEntity(BlockPos.ZERO,AstraMicroblocks.OAK_HOST.defaultBlockState());
+        var oakState = renderer.createRenderState();
+        renderer.extractRenderState(oak,oakState,0,Vec3.ZERO,null);
+        require(oakState.mesh != originalStone,"material replacement reused stone cache");
+        verifyMesh(client,oak,oakState.mesh);
+        oak.editCells(oak.gridCopy(),dev.astra.microblocks.ChiselOperation.CUT);
+        renderer.extractRenderState(oak,oakState,0,Vec3.ZERO,null);
+        require(oakState.mesh.size()==0,"empty oak rendered a cube");
+        require(oak.undoEdit(),"empty oak undo");
+        renderer.extractRenderState(oak,oakState,0,Vec3.ZERO,null);
+        verifyMesh(client,oak,oakState.mesh);
+        System.out.println("ASTRA_TEST: MATERIAL_CLIENT_PASS");
+    }
+
+    private static void verifyBlockItem(Minecraft client, dev.astra.microblocks.TestHostBlock block) {
+        var id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(block.asItem());
+        var components = net.minecraft.core.component.DataComponentMap.builder()
+                .set(net.minecraft.core.component.DataComponents.ITEM_MODEL,id).build();
+        var stack = new net.minecraft.world.item.ItemStack(new net.minecraft.core.Holder.Direct<>(block.asItem(),components),1);
+        for (var context : new net.minecraft.world.item.ItemDisplayContext[] {
+                net.minecraft.world.item.ItemDisplayContext.GUI,net.minecraft.world.item.ItemDisplayContext.FIRST_PERSON_RIGHT_HAND}) {
+            var state = new net.minecraft.client.renderer.item.ItemStackRenderState();
+            client.getItemModelResolver().updateForTopItem(state,stack,context,null,null,0);
+            require(!state.isEmpty() && state.getModelBoundingBox().getSize()>0,"material item model missing: "+id);
+        }
+    }
+
     private static void verifyInspector(Minecraft client) {
         var grid = new dev.astra.microblocks.MicroblockGrid();
         grid.remove(7,15,8);
@@ -166,6 +234,20 @@ public final class ClientRenderTest {
             screen.extractRenderState(graphics,0,0,0);
             int[] textCount = {0}; state.forEachText(text -> textCount[0]++);
             require(textCount[0]>=2, "menu did not extract title and current mode");
+            for (var nextMode : dev.astra.microblocks.ChiselMode.values())
+            for (var nextOp : dev.astra.microblocks.ChiselOperation.values()) {
+                screen.updateSelection(nextMode, nextOp);
+                int inactive = 0;
+                for (var child : screen.children()) {
+                    var widget = (net.minecraft.client.gui.components.AbstractWidget) child;
+                    if (!widget.active) {
+                        inactive++;
+                        require(widget.getMessage().getString().equals(nextMode.label())
+                                || widget.getMessage().getString().equals(nextOp.label()), "menu stale server selection");
+                    }
+                }
+                require(inactive == 2 && screen.children().size() == 13, "menu duplicated or lost controls on selection");
+            }
         }
         System.out.println("ASTRA_TEST: CHISEL_INSPECTOR_CLIENT_PASS");
     }
@@ -192,9 +274,9 @@ public final class ClientRenderTest {
 
     private static void verifyMesh(Minecraft client, TestHostBlockEntity host, Mesh mesh) {
         var faces = MicroblockRenderMesh.build(host.gridCopy());
-        var sprite = client.getAtlasManager().get(new SpriteId(
-                TextureAtlas.LOCATION_BLOCKS, Identifier.withDefaultNamespace("block/stone")));
-        require(sprite.contents().name().equals(Identifier.withDefaultNamespace("block/stone")), "stone texture missing");
+        var texture = dev.astra.microblocks.HostMaterial.of(host.getBlockState()).texture();
+        var sprite = client.getAtlasManager().get(new SpriteId(TextureAtlas.LOCATION_BLOCKS, texture));
+        require(sprite.contents().name().equals(texture), "material texture missing: " + texture);
         int[] index = {0};
         mesh.forEach(quad -> {
             var face = faces.get(index[0]++);
@@ -209,6 +291,9 @@ public final class ClientRenderTest {
                 minU = Math.min(minU, quad.u(corner)); maxU = Math.max(maxU, quad.u(corner));
                 minV = Math.min(minV, quad.v(corner)); maxV = Math.max(maxV, quad.v(corner));
             }
+            require(minU >= sprite.getU0() - 0.000001f && maxU <= sprite.getU1() + 0.000001f
+                    && minV >= sprite.getV0() - 0.000001f && maxV <= sprite.getV1() + 0.000001f,
+                    "quad uses another material's atlas coordinates: " + texture);
             float spanU = sprite.getU1() - sprite.getU0(), spanV = sprite.getV1() - sprite.getV0();
             require(Math.abs((maxU - minU) / spanU - 1 / 16f) < 0.002f, "incorrect texture U scale");
             require(Math.abs((maxV - minV) / spanV - 1 / 16f) < 0.002f, "incorrect texture V scale");

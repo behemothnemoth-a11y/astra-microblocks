@@ -59,6 +59,14 @@ public final class AstraMicroblocks
                             .setId(TEST_HOST_KEY)
             );
 
+    private static final ResourceKey<Block> OAK_HOST_KEY = ResourceKey.create(
+            BuiltInRegistries.BLOCK.key(), id("oak_host"));
+    private static final ResourceKey<Item> OAK_HOST_ITEM_KEY = ResourceKey.create(
+            BuiltInRegistries.ITEM.key(), id("oak_host"));
+    public static final TestHostBlock OAK_HOST = new TestHostBlock(
+            BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_PLANKS)
+                    .noOcclusion().dynamicShape().setId(OAK_HOST_KEY));
+
     public static final AstraChiselItem ASTRA_CHISEL =
             new AstraChiselItem(
                     new Item.Properties()
@@ -88,6 +96,11 @@ public final class AstraMicroblocks
                 )
         );
 
+        Registry.register(BuiltInRegistries.BLOCK, OAK_HOST_KEY, OAK_HOST);
+        Registry.register(BuiltInRegistries.ITEM, OAK_HOST_ITEM_KEY,
+                new BlockItem(OAK_HOST, new Item.Properties()
+                        .useBlockDescriptionPrefix().setId(OAK_HOST_ITEM_KEY)));
+
         Registry.register(
                 BuiltInRegistries.ITEM,
                 ASTRA_CHISEL_KEY,
@@ -97,7 +110,7 @@ public final class AstraMicroblocks
         CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.TOOLS_AND_UTILITIES)
                 .register(output -> output.accept(ASTRA_CHISEL));
         CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.BUILDING_BLOCKS)
-                .register(output -> output.accept(TEST_HOST));
+                .register(output -> { output.accept(TEST_HOST); output.accept(OAK_HOST); });
 
         ChiselUndo.register();
         ChiselCommands.register();
@@ -109,7 +122,7 @@ public final class AstraMicroblocks
                         FabricBlockEntityTypeBuilder
                                 .create(
                                         TestHostBlockEntity::new,
-                                        TEST_HOST
+                                        TEST_HOST, OAK_HOST
                                 )
                                 .build()
                 );

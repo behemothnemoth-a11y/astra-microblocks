@@ -61,13 +61,14 @@ public final class ChiselInspector {
             ChiselMode mode = ChiselMode.read(client.player.getMainHandItem());
             Target target = target(client);
             var operation = ChiselOperation.read(client.player.getMainHandItem());
-            String first = operation.label() + ": " + mode.label();
+            String first = operation.label() + ": " + mode.label()
+                    + (target == null ? "" : " | " + dev.astra.microblocks.HostMaterial.of(cachedHost.getBlockState()).label());
             String second = target == null ? "Aim at a sculptable block" :
                     "Cells: " + target.preview().occupied() + "/4096  |  " +
                     (client.player.isShiftKeyDown() ? "Undo last edit" : (target.outside() ? "Outside host" : "Next " + operation.id() + ": " + target.preview().affected()));
             String third = menuKey.getTranslatedKeyMessage().getString() + ": modes  |  Crouch + click air: cycle";
             int width = Math.max(client.font.width(first), Math.max(client.font.width(second), client.font.width(third)));
-            String fourth = target == null ? "Add fills cavities within this host" : "Undo: " + cachedHost.undoDepth() + "  |  Redo: " + cachedHost.redoDepth();
+            String fourth = target == null ? (operation == ChiselOperation.ADD ? "Add fills cavities within this host" : "Cut removes cells within one host") : "Undo: " + cachedHost.undoDepth() + "  |  Redo: " + cachedHost.redoDepth();
             width = Math.max(width,client.font.width(fourth));
             graphics.fill(5, 5, width + 13, 55, 0xA0000000);
             graphics.text(client.font, first, 9, 9, 0xFFFFC04D);

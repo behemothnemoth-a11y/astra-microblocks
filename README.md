@@ -2,11 +2,42 @@
 
 Minecraft 26.2 / Fabric prototype for editing a persistent 16×16×16 block with the Astra Chisel.
 
+## Two-material workshop test package (0.1.7)
+
+**New:** Astra Sculptable Oak Planks joins Astra Sculptable Stone in the creative
+**Building Blocks** tab. The old stone block keeps its `test_host` ID, so existing worlds
+continue to load. Both blocks use the same 4096-cell data, geometry, Cut/Add brushes,
+previews and history. Each block has one fixed material; Add restores that material.
+The block state saves the material, so there is no grid-format migration.
+
+```mcfunction
+/give @s astra_microblocks:astra_chisel
+/give @s astra_microblocks:test_host 64
+/give @s astra_microblocks:oak_host 64
+```
+
+The HUD identifies the aimed-at material. The **G menu stays open when choosing Cut/Add
+or a brush**, allowing both settings to be changed together. Its selected buttons follow
+server-confirmed tool settings. Press Done or Escape to return to building; Undo/Redo
+buttons still close the menu so the result is visible.
+
+Start with [the 0.1.7 live test course](TESTING-0.1.7.md), which includes expected cell
+counts and mixed-material checks. Automated gates exercise all eight brushes on all six
+faces for both materials, real chisel and obstruction handling for each, exact adjacent
+stone/oak grids and collision through three world starts, loaded item models, both atlas
+textures, all-brush render invalidation and texture bounds, and menu selection updates.
+All earlier lifecycle and renderer tests remain enabled.
+
+History still holds 32 edits per loaded host and saves one undo across unload/restart.
+The preview still shows geometric selection in green for Add; the server rejects entity
+overlap when clicked. This package does not add mixed materials inside one block,
+conversion of ordinary Minecraft blocks, carved-item pickup, or survival material costs.
+
 ## Build and repair test package (0.1.6)
 
 Hold the chisel in your main hand and press **G**. The menu now contains **Cut / Add**, all
- eight brush shapes, and **Undo last edit / Redo last edit**. Choosing a setting closes the
-menu; reopen it to change another setting. Cut keeps the amber preview; Add uses green.
+ eight brush shapes, and **Undo last edit / Redo last edit**. In 0.1.6, choosing a setting closes the
+menu; 0.1.7 keeps it open for settings changes. Cut keeps the amber preview; Add uses green.
 
 **Add:** aim at an inner face of a cavity and right-click. It selects the adjacent cell on
  the empty side of that face, then applies the selected brush. All eight shapes work:

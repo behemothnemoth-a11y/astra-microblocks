@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "astra_microblocks:block/oak_host" }
+  }
+}

@@ -79,6 +79,8 @@ jobs:
           grep -F "ASTRA_TEST: CHISEL_PREVIEW_PASS" phase0.log
           grep -F "ASTRA_TEST: CHISEL_WORKSHOP_PASS" phase0.log
 
+          grep -F "ASTRA_TEST: MATERIAL_WORKSHOP_PASS" phase0.log
+
           test "$(cat run/astra-test-phase.txt)" = "1"
 
           echo "=== ASTRA LIFECYCLE PHASE 1 ==="
@@ -101,6 +103,8 @@ jobs:
             "ASTRA_TEST: PHASE1_PASS" \
             phase1.log
 
+          grep -F "ASTRA_TEST: MATERIAL_PERSISTENCE_PASS" phase1.log
+
           test "$(cat run/astra-test-phase.txt)" = "2"
 
           echo "=== ASTRA LIFECYCLE PHASE 2 ==="
@@ -114,6 +118,8 @@ jobs:
           grep -F \
             "ASTRA_TEST: LIFECYCLE_PASS" \
             phase2.log
+
+          grep -F "ASTRA_TEST: MATERIAL_RESTART_PASS" phase2.log
 
           test "$(cat run/astra-test-phase.txt)" = "3"
 
@@ -131,11 +137,12 @@ jobs:
             --no-daemon --console=plain | tee client-render.log
           grep -F "ASTRA_TEST: CLIENT_RENDER_PASS" client-render.log
           grep -F "ASTRA_TEST: CHISEL_INSPECTOR_CLIENT_PASS" client-render.log
+          grep -F "ASTRA_TEST: MATERIAL_CLIENT_PASS" client-render.log
 
       - name: Verify JAR contents
         shell: bash
         run: |
-          JAR="build/libs/astra-microblocks-0.1.6.jar"
+          JAR="build/libs/astra-microblocks-0.1.7.jar"
 
           test -f "$JAR"
 
@@ -157,11 +164,15 @@ jobs:
           jar tf "$JAR" \
             | grep 'assets/astra_microblocks/items/test_host.json'
 
+          jar tf "$JAR" | grep 'assets/astra_microblocks/items/oak_host.json'
+          jar tf "$JAR" | grep 'assets/astra_microblocks/models/block/oak_host.json'
+          jar tf "$JAR" | grep 'assets/astra_microblocks/blockstates/oak_host.json'
+
           echo "ASTRA PERMANENT SOURCE BUILD PASSED"
 
       - name: Upload compiled mod
         uses: actions/upload-artifact@v7
         with:
-          name: astra-microblocks-0.1.6
-          path: build/libs/astra-microblocks-0.1.6.jar
+          name: astra-microblocks-0.1.7
+          path: build/libs/astra-microblocks-0.1.7.jar
           if-no-files-found: error

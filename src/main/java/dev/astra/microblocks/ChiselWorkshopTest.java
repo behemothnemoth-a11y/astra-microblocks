@@ -38,8 +38,10 @@ public final class ChiselWorkshopTest {
     public static void run(ServerLevel level) {
         targeting();
         history(level);
-        interaction(level);
-        obstruction(level);
+        for (var block : new TestHostBlock[] {AstraMicroblocks.TEST_HOST, AstraMicroblocks.OAK_HOST}) {
+            interaction(level, block);
+            obstruction(level, block);
+        }
         System.out.println("ASTRA_TEST: CHISEL_WORKSHOP_PASS");
     }
 
@@ -115,7 +117,7 @@ public final class ChiselWorkshopTest {
             check(host.redoEdit() && host.gridCopy().equals(snapshots.get(i)),"mixed redo");
     }
 
-    private static void interaction(ServerLevel level) {
+    private static void interaction(ServerLevel level, TestHostBlock block) {
         BlockPos pos = new BlockPos(9,100,9);
         var tool = new ItemStack(AstraMicroblocks.ASTRA_CHISEL);
         Player player = new Player(level,new GameProfile(UUID.randomUUID(),"AstraWorkshopTest")) {
@@ -124,7 +126,7 @@ public final class ChiselWorkshopTest {
         };
         player.setPos(9,100,10);
         player.setItemInHand(InteractionHand.MAIN_HAND,tool);
-        level.setBlock(pos,AstraMicroblocks.TEST_HOST.defaultBlockState(),Block.UPDATE_ALL);
+        level.setBlock(pos,block.defaultBlockState(),Block.UPDATE_ALL);
         try {
             var host = (TestHostBlockEntity) level.getBlockEntity(pos);
             host.removeCell(8,15,8);
@@ -152,13 +154,13 @@ public final class ChiselWorkshopTest {
         } finally { level.removeBlock(pos,false); }
     }
 
-    private static void obstruction(ServerLevel level) {
+    private static void obstruction(ServerLevel level, TestHostBlock block) {
         BlockPos pos = new BlockPos(11,100,11);
         var chunk = new net.minecraft.world.level.ChunkPos(pos.getX() >> 4,pos.getZ() >> 4);
         var ready = level.getChunkSource().addTicketAndLoadWithRadius(net.minecraft.server.level.TicketType.FORCED,chunk,2);
         level.getServer().managedBlock(ready::isDone);
         ready.join();
-        level.setBlock(pos,AstraMicroblocks.TEST_HOST.defaultBlockState(),Block.UPDATE_ALL);
+        level.setBlock(pos,block.defaultBlockState(),Block.UPDATE_ALL);
         var host = (TestHostBlockEntity) level.getBlockEntity(pos);
         host.editCells(new MicroblockGrid(),ChiselOperation.CUT);
         var cow = EntityTypes.COW.create(level,EntitySpawnReason.COMMAND);

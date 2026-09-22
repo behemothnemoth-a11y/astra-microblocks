@@ -127,6 +127,7 @@ ServerLevel level =
         ChiselModeTest.run(level);
         ChiselPreviewTest.run();
         ChiselWorkshopTest.run(level);
+        MaterialWorkshopTest.phaseZero(level);
         require(
                 level.setBlock(
                         TEST_POS,
@@ -368,6 +369,7 @@ ServerLevel level =
 
         verifyPattern(host);
 
+        MaterialWorkshopTest.phaseOne(level);
         writePhase(2);
 
         System.out.println(
@@ -431,6 +433,7 @@ ServerLevel level =
                 "undone arbitrary cell did not persist"
         );
 
+        MaterialWorkshopTest.phaseTwo(level);
         writePhase(3);
 
         System.out.println(

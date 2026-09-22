@@ -2,6 +2,7 @@ package dev.astra.microblocks.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.astra.microblocks.MicroblockGrid;
+import dev.astra.microblocks.HostMaterial;
 import dev.astra.microblocks.MicroblockRenderMesh;
 import dev.astra.microblocks.TestHostBlockEntity;
 import net.fabricmc.fabric.api.client.renderer.v1.Renderer;
@@ -22,18 +23,15 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.client.resources.model.sprite.SpriteGetter;
 import net.minecraft.client.resources.model.sprite.SpriteId;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-/** Prototype stone surface renderer; occupancy remains owned by the common block entity. */
+/** Shared material-aware surface renderer; the common block entity owns occupancy. */
 public final class TestHostBlockEntityRenderer
         implements BlockEntityRenderer<TestHostBlockEntity, TestHostRenderState> {
-    private static final SpriteId STONE = new SpriteId(
-            TextureAtlas.LOCATION_BLOCKS, Identifier.withDefaultNamespace("block/stone"));
     private static final int[] NO_TINTS = new int[0];
 
     private final SpriteGetter sprites;
@@ -56,7 +54,8 @@ public final class TestHostBlockEntityRenderer
                                    float tickProgress, Vec3 cameraPos,
                                    ModelFeatureRenderer.CrumblingOverlay crumblingOverlay) {
         BlockEntityRenderer.super.extractRenderState(host, state, tickProgress, cameraPos, crumblingOverlay);
-        TextureAtlasSprite sprite = sprites.get(STONE);
+        TextureAtlasSprite sprite = sprites.get(new SpriteId(TextureAtlas.LOCATION_BLOCKS,
+                HostMaterial.of(host.getBlockState()).texture()));
         CachedMesh cached = cache.get(host);
         // Sprite identity also invalidates UVs when a resource pack/atlas is reloaded.
         if (cached == null || cached.revision() != host.revision() || cached.sprite() != sprite) {
@@ -81,7 +80,7 @@ public final class TestHostBlockEntityRenderer
                 emitter.pos(corner, vertex.x() / (float) MicroblockGrid.SIZE,
                         vertex.y() / (float) MicroblockGrid.SIZE, vertex.z() / (float) MicroblockGrid.SIZE);
             }
-            // Block-space UVs keep stone continuous across cells instead of repeating
+            // Block-space UVs keep the material continuous across cells instead of repeating
             // a whole 16x16 texture on every individual microcell.
             emitter.materialBake(material, MutableQuadView.BAKE_LOCK_UV);
             emitter.color(-1, -1, -1, -1);

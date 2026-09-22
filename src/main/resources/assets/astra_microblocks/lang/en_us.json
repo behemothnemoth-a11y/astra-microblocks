@@ -1,6 +1,7 @@
 {
   "item.astra_microblocks.astra_chisel": "Astra Chisel",
-  "block.astra_microblocks.test_host": "Astra Sculptable Host",
+  "block.astra_microblocks.test_host": "Astra Sculptable Stone",
   "key.astra_microblocks.modes": "Open chisel mode menu",
-  "key.category.astra_microblocks.chisel": "Astra Microblocks"
+  "key.category.astra_microblocks.chisel": "Astra Microblocks",
+  "block.astra_microblocks.oak_host": "Astra Sculptable Oak Planks"
 }
