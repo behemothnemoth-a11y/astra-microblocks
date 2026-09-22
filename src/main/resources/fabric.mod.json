@@ -8,6 +8,9 @@
   "entrypoints": {
     "main": [
       "dev.astra.microblocks.AstraMicroblocks"
+    ],
+    "client": [
+      "dev.astra.microblocks.client.AstraMicroblocksClient"
     ]
   },
   "depends": {

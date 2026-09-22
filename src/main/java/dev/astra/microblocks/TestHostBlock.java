@@ -48,7 +48,8 @@ public final class TestHostBlock extends BaseEntityBlock {
     protected RenderShape getRenderShape(
             BlockState state
     ) {
-        return RenderShape.MODEL;
+        // The block entity renderer owns all visible surfaces, including cavities.
+        return RenderShape.INVISIBLE;
     }
 
     /**

@@ -114,10 +114,23 @@ jobs:
           test "$(cat run/astra-test-phase.txt)" = "3"
 
           echo "ASTRA WORLD LIFECYCLE GATE PASSED"
+
+      - name: Run client renderer smoke test
+        shell: bash
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "true"
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb libgl1-mesa-dri libglx-mesa0
+          timeout 300s xvfb-run -a gradle runClientRenderTest \
+            --no-daemon --console=plain | tee client-render.log
+          grep -F "ASTRA_TEST: CLIENT_RENDER_PASS" client-render.log
+
       - name: Verify JAR contents
         shell: bash
         run: |
-          JAR="build/libs/astra-microblocks-0.1.2.jar"
+          JAR="build/libs/astra-microblocks-0.1.3.jar"
 
           test -f "$JAR"
 
@@ -133,11 +146,17 @@ jobs:
           jar tf "$JAR" \
             | grep 'fabric.mod.json'
 
+          jar tf "$JAR" \
+            | grep 'dev/astra/microblocks/client/TestHostBlockEntityRenderer.class'
+
+          jar tf "$JAR" \
+            | grep 'assets/astra_microblocks/items/test_host.json'
+
           echo "ASTRA PERMANENT SOURCE BUILD PASSED"
 
       - name: Upload compiled mod
         uses: actions/upload-artifact@v7
         with:
-          name: astra-microblocks-0.1.2
-          path: build/libs/astra-microblocks-0.1.2.jar
+          name: astra-microblocks-0.1.3
+          path: build/libs/astra-microblocks-0.1.3.jar
           if-no-files-found: error

@@ -1,6 +1,7 @@
 .gradle/
 build/
 run/
+run-client-render-test/
 *.log
 .idea/
 *.iml

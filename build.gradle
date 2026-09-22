@@ -37,7 +37,19 @@ processResources {
     }
 }
 loom {
+    splitEnvironmentSourceSets()
+    mods {
+        astra_microblocks {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
     runs {
+        clientRenderTest {
+            client()
+            property "astra.renderTest", "true"
+            runDir "run-client-render-test"
+        }
         server {
             property "astra.lifecycleTest", "true"
         }

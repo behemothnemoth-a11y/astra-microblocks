@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "astra_microblocks:block/test_host"
+  }
+}

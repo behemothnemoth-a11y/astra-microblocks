@@ -52,6 +52,8 @@ public final class AstraMicroblocks
             new TestHostBlock(
                     BlockBehaviour.Properties
                             .ofFullCopy(Blocks.STONE)
+                            .noOcclusion()
+                            .dynamicShape()
                             .setId(TEST_HOST_KEY)
             );
 
