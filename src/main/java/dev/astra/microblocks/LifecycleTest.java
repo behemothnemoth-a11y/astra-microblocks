@@ -126,6 +126,7 @@ ServerLevel level =
         AstraChiselTest.run(level);
         ChiselModeTest.run(level);
         ChiselPreviewTest.run();
+        ChiselWorkshopTest.run(level);
         require(
                 level.setBlock(
                         TEST_POS,

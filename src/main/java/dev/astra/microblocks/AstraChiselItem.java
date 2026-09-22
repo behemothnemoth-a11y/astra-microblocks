@@ -40,19 +40,26 @@ public final class AstraChiselItem extends Item {
         Player player = context.getPlayer();
         if (context.isSecondaryUseActive()) {
             boolean hadUndo = host.canUndo();
-            host.undo();
+            boolean changed = host.undoEdit();
+            if (changed) ChiselUndo.remember(context.getItemInHand(), level, host);
             if (player != null) player.sendOverlayMessage(Component.literal(
-                    hadUndo ? "Astra Chisel: cut undone" : "Astra Chisel: nothing to undo"));
+                    changed ? "Astra Chisel: edit undone" : hadUndo ? "Undo blocked: move away from the cells being restored" : "Astra Chisel: nothing to undo"));
             return InteractionResult.SUCCESS;
         }
         BlockHitResult hit = new BlockHitResult(context.getClickLocation(),
                 context.getClickedFace(), context.getClickedPos(), false);
         ChiselMode mode = ChiselMode.read(context.getItemInHand());
-        int removed = host.removeCells(mode.selection(
-                MicroblockHitResolver.resolveForRemoval(hit), context.getClickedFace()));
-        if (removed > 0) ChiselUndo.remember(context.getItemInHand(), level, host);
-        if (player != null) player.sendOverlayMessage(Component.literal(
-                "Astra Chisel: " + mode.label() + " — " + removed + " cells removed"));
+        ChiselOperation operation = ChiselOperation.read(context.getItemInHand());
+        var target = operation.target(hit);
+        if (target.isEmpty()) {
+            if (player != null) player.sendOverlayMessage(Component.literal("Add stays inside this block: aim at an inner face of a cavity"));
+            return InteractionResult.SUCCESS;
+        }
+        int changed = host.editCells(mode.selection(target.get(), context.getClickedFace()), operation);
+        if (changed > 0) ChiselUndo.remember(context.getItemInHand(), level, host);
+        if (player != null) player.sendOverlayMessage(Component.literal(changed < 0
+                ? "Placement blocked: an entity occupies the cells"
+                : "Astra Chisel: " + operation.label() + " " + mode.label() + " — " + changed + " cells changed"));
         return InteractionResult.SUCCESS;
     }
 
@@ -61,9 +68,9 @@ public final class AstraChiselItem extends Item {
                                 Consumer<Component> lines, TooltipFlag flag) {
         super.appendHoverText(stack, context, display, lines, flag);
         lines.accept(Component.literal("Mode: " + ChiselMode.read(stack).label()));
-        lines.accept(Component.literal("Right-click host: cut"));
+        lines.accept(Component.literal("Right-click host: " + ChiselOperation.read(stack).label()));
         lines.accept(Component.literal("Crouch + right-click air: next mode"));
-        lines.accept(Component.literal("Crouch + right-click host: undo last cut"));
-        lines.accept(Component.literal("Empty host? Hold chisel and use /astra undo nearby"));
+        lines.accept(Component.literal("Crouch + right-click host: undo last edit"));
+        lines.accept(Component.literal("Menu: Cut/Add, Undo/Redo. Commands: /astra undo or /astra redo"));
     }
 }

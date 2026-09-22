@@ -73,6 +73,24 @@ public final class ClientRenderTest {
         renderer.extractRenderState(host, restored, 0, Vec3.ZERO, null);
         require(restored.mesh != carved.mesh && restored.mesh.size() == 1536, "undo did not restore mesh");
 
+        var workshop = new TestHostBlockEntity(BlockPos.ZERO,AstraMicroblocks.TEST_HOST.defaultBlockState());
+        var brush = dev.astra.microblocks.ChiselMode.CUBE_4.selection(
+                new dev.astra.microblocks.MicroblockHitResolver.Cell(7,15,8),net.minecraft.core.Direction.UP);
+        workshop.editCells(brush,dev.astra.microblocks.ChiselOperation.CUT);
+        var workshopState = renderer.createRenderState();
+        renderer.extractRenderState(workshop,workshopState,0,Vec3.ZERO,null);
+        var cutMesh = workshopState.mesh;
+        workshop.editCells(brush,dev.astra.microblocks.ChiselOperation.ADD);
+        renderer.extractRenderState(workshop,workshopState,0,Vec3.ZERO,null);
+        require(workshopState.mesh != cutMesh && workshopState.mesh.size()==1536,"addition did not rebuild full mesh");
+        require(workshop.undoEdit(),"client addition undo");
+        renderer.extractRenderState(workshop,workshopState,0,Vec3.ZERO,null);
+        verifyMesh(client,workshop,workshopState.mesh);
+        require(workshopState.mesh.size()==cutMesh.size(),"addition undo geometry");
+        require(workshop.redoEdit(),"client addition redo");
+        renderer.extractRenderState(workshop,workshopState,0,Vec3.ZERO,null);
+        require(workshopState.mesh.size()==1536,"addition redo mesh");
+
         for (var mode : dev.astra.microblocks.ChiselMode.values()) {
             host.removeCells(mode.selection(new dev.astra.microblocks.MicroblockHitResolver.Cell(7,15,8),
                     net.minecraft.core.Direction.UP));
@@ -123,18 +141,26 @@ public final class ClientRenderTest {
             require(drawn.aabb().equals(expected), "preview moved or scaled incorrectly");
             require(drawn.style().hasFill() && drawn.style().hasStroke(), "preview is invisible");
         }
+        try (var ignored = net.minecraft.gizmos.Gizmos.withCollector(collector)) {
+            ChiselInspector.emit(preview,pos,dev.astra.microblocks.ChiselOperation.ADD);
+        }
+        for (var instance : collector.drainGizmos()) {
+            var drawn = (net.minecraft.gizmos.CuboidGizmo) instance.gizmo();
+            require(drawn.style().stroke()==0xFF52EF8B,"add preview must be green");
+        }
+        for (var operation : dev.astra.microblocks.ChiselOperation.values())
         for (int[] size : new int[][] {{320,240},{640,360}}) {
-            var screen = new ChiselModeScreen(dev.astra.microblocks.ChiselMode.PLANE);
+            var screen = new ChiselModeScreen(dev.astra.microblocks.ChiselMode.PLANE,operation);
             screen.init(size[0],size[1]);
-            require(screen.children().size()==9, "menu missing mode or close button");
+            require(screen.children().size()==13, "menu missing mode or close button");
             int selected = 0;
             for (var child : screen.children()) {
                 var widget = (net.minecraft.client.gui.components.AbstractWidget) child;
                 require(widget.getX()>=0 && widget.getY()>=0 && widget.getRight()<=size[0]
                         && widget.getBottom()<=size[1], "menu widget outside screen");
-                if (!widget.active) { selected++; require(widget.getMessage().getString().equals("Plane (clicked face)"), "wrong selected mode"); }
+                if (!widget.active) { selected++; require((widget.getMessage().getString().equals("Plane (clicked face)") || widget.getMessage().getString().equals(operation.label())), "wrong selected mode"); }
             }
-            require(selected==1 && !screen.isPauseScreen(), "menu selection/pause state");
+            require(selected==2 && !screen.isPauseScreen(), "menu selection/pause state");
             var state = new net.minecraft.client.renderer.state.gui.GuiRenderState();
             var graphics = new net.minecraft.client.gui.GuiGraphicsExtractor(client,state,0,0);
             screen.extractRenderState(graphics,0,0,0);

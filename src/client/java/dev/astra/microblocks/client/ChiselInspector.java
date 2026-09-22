@@ -2,6 +2,7 @@ package dev.astra.microblocks.client;
 
 import dev.astra.microblocks.AstraMicroblocks;
 import dev.astra.microblocks.ChiselMode;
+import dev.astra.microblocks.ChiselOperation;
 import dev.astra.microblocks.ChiselPreview;
 import dev.astra.microblocks.MicroblockHitResolver;
 import dev.astra.microblocks.TestHostBlockEntity;
@@ -29,6 +30,7 @@ public final class ChiselInspector {
     private static MicroblockHitResolver.Cell cachedCell;
     private static Direction cachedFace;
     private static ChiselMode cachedMode;
+    private static ChiselOperation cachedOperation;
     private static ChiselPreview cachedPreview;
 
     private ChiselInspector() {}
@@ -39,7 +41,7 @@ public final class ChiselInspector {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (menuKey.consumeClick()) {
                 if (client.gui.screen() == null && holdingChisel(client))
-                    client.gui.setScreen(new ChiselModeScreen(ChiselMode.read(client.player.getMainHandItem())));
+                    client.gui.setScreen(new ChiselModeScreen(ChiselMode.read(client.player.getMainHandItem()), ChiselOperation.read(client.player.getMainHandItem())));
             }
             if (client.level == null || !holdingChisel(client)) clearCache();
         });
@@ -49,7 +51,7 @@ public final class ChiselInspector {
             if (target == null || client.player.isShiftKeyDown()) return;
             var collector = new SimpleGizmoCollector();
             try (var ignored = Gizmos.withCollector(collector)) {
-                emit(target.preview(), target.pos());
+                emit(target.preview(), target.pos(), ChiselOperation.read(client.player.getMainHandItem()));
             }
             context.levelRenderer().addMainThreadGizmos(collector.drainGizmos());
         });
@@ -58,16 +60,20 @@ public final class ChiselInspector {
             if (!visible(client)) return;
             ChiselMode mode = ChiselMode.read(client.player.getMainHandItem());
             Target target = target(client);
-            String first = "Astra Chisel: " + mode.label();
+            var operation = ChiselOperation.read(client.player.getMainHandItem());
+            String first = operation.label() + ": " + mode.label();
             String second = target == null ? "Aim at a sculptable block" :
                     "Cells: " + target.preview().occupied() + "/4096  |  " +
-                    (client.player.isShiftKeyDown() ? "Undo last cut" : "Next cut: " + target.preview().affected());
+                    (client.player.isShiftKeyDown() ? "Undo last edit" : (target.outside() ? "Outside host" : "Next " + operation.id() + ": " + target.preview().affected()));
             String third = menuKey.getTranslatedKeyMessage().getString() + ": modes  |  Crouch + click air: cycle";
             int width = Math.max(client.font.width(first), Math.max(client.font.width(second), client.font.width(third)));
-            graphics.fill(5, 5, width + 13, 43, 0xA0000000);
+            String fourth = target == null ? "Add fills cavities within this host" : "Undo: " + cachedHost.undoDepth() + "  |  Redo: " + cachedHost.redoDepth();
+            width = Math.max(width,client.font.width(fourth));
+            graphics.fill(5, 5, width + 13, 55, 0xA0000000);
             graphics.text(client.font, first, 9, 9, 0xFFFFC04D);
             graphics.text(client.font, second, 9, 21, 0xFFFFFFFF);
             graphics.text(client.font, third, 9, 33, 0xFFD0D0D0);
+            graphics.text(client.font, fourth, 9, 45, 0xFFD0D0D0);
         });
     }
 
@@ -79,7 +85,7 @@ public final class ChiselInspector {
         return client.level != null && holdingChisel(client) && client.gui.screen() == null && !client.gui.hud.isHidden();
     }
 
-    private record Target(BlockPos pos, ChiselPreview preview) {}
+    private record Target(BlockPos pos, ChiselPreview preview, boolean outside) {}
 
     private static Target target(Minecraft client) {
         if (!visible(client) || !(client.hitResult instanceof BlockHitResult hit)
@@ -88,22 +94,29 @@ public final class ChiselInspector {
             clearCache();
             return null;
         }
-        var cell = MicroblockHitResolver.resolveForRemoval(hit);
+        var operation = ChiselOperation.read(client.player.getMainHandItem());
+        var cell = operation.target(hit).orElse(null);
         var mode = ChiselMode.read(client.player.getMainHandItem());
-        if (cachedHost != host || cachedRevision != host.revision() || !cell.equals(cachedCell)
-                || cachedFace != hit.getDirection() || cachedMode != mode) {
-            cachedPreview = ChiselPreview.create(host.gridCopy(), mode, cell, hit.getDirection());
+        if (cachedHost != host || cachedRevision != host.revision() || !java.util.Objects.equals(cell,cachedCell)
+                || cachedFace != hit.getDirection() || cachedMode != mode || cachedOperation != operation) {
+            cachedPreview = ChiselPreview.create(host.gridCopy(), mode, cell, hit.getDirection(), operation);
             cachedHost = host;
             cachedRevision = host.revision();
             cachedCell = cell;
             cachedFace = hit.getDirection();
             cachedMode = mode;
+            cachedOperation = operation;
         }
-        return new Target(hit.getBlockPos(), cachedPreview);
+        return new Target(hit.getBlockPos(), cachedPreview, cell == null);
     }
 
     static void emit(ChiselPreview preview, BlockPos pos) {
-        var style = GizmoStyle.strokeAndFill(0xFFFFB52E, 2f, 0x30FFB52E);
+        emit(preview,pos,ChiselOperation.CUT);
+    }
+
+    static void emit(ChiselPreview preview, BlockPos pos, ChiselOperation operation) {
+        var style = operation == ChiselOperation.ADD ? GizmoStyle.strokeAndFill(0xFF52EF8B,2f,0x3052EF8B)
+                : GizmoStyle.strokeAndFill(0xFFFFB52E,2f,0x30FFB52E);
         for (var box : preview.boxes()) {
             var bounds = new AABB(box.minX()/16.0, box.minY()/16.0, box.minZ()/16.0,
                     box.maxX()/16.0, box.maxY()/16.0, box.maxZ()/16.0).move(pos).inflate(0.0005);

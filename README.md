@@ -2,6 +2,71 @@
 
 Minecraft 26.2 / Fabric prototype for editing a persistent 16×16×16 block with the Astra Chisel.
 
+## Build and repair test package (0.1.6)
+
+Hold the chisel in your main hand and press **G**. The menu now contains **Cut / Add**, all
+ eight brush shapes, and **Undo last edit / Redo last edit**. Choosing a setting closes the
+menu; reopen it to change another setting. Cut keeps the amber preview; Add uses green.
+
+**Add:** aim at an inner face of a cavity and right-click. It selects the adjacent cell on
+ the empty side of that face, then applies the selected brush. All eight shapes work:
+ single cell, X/Y/Z lines, a face-parallel plane, and aligned 2/4/8-cell cubes. Already-solid
+ cells are skipped. Add stays inside that host: clicking an exterior face reports
+ **Outside host**, and never creates or changes a neighboring block. Completely empty
+ hosts need undo because they have no surface to target. This remains a free-building
+ prototype; placement does not consume bits or implement survival material costs.
+
+**History:** each brush stroke is one edit, with up to **32 undo steps per loaded host**.
+Undo and redo are shared by everyone editing that host. A new successful edit clears redo;
+a no-op preserves it. Crouch-right-click undoes the targeted host. The menu's history buttons
+and `/astra undo` / `/astra redo` address the held chisel's **last edited host**, within normal
+reach; revision checks reject a stale target changed by another edit. Successful undo/redo
+updates that reference so you can repeat the action. Tap once per desired history step.
+
+The HUD shows remaining undo/redo counts for the block you aim at. Older history and redo
+are session-only and disappear when the host unloads or the world restarts. The existing
+saved last-edit undo remains compatible with older worlds; after reload, that one undo
+can itself be redone during the new session. The grid/save format is unchanged. Existing
+data-layer single-edit helpers retain their original one-level undo contract.
+
+Add, user undo and redo reject newly occupied cells that overlap a living or building-blocking
+entity. A rejected action does not consume history. Green preview/counts show geometric
+changes; the server checks entity overlap when you click. Move the obstruction and retry.
+
+Commands: `/astra operation cut`, `/astra operation add`, `/astra mode <mode>`,
+`/astra undo`, `/astra redo`. Settings are saved on the tool and require it in your main hand.
+
+### Large live test course
+
+1. **Single-cell repair:** cut a cell from each face. Choose Add / Single, aim at a cavity
+   wall and restore it. Check the green target, count, texture, selection and collision.
+2. **Every brush:** carve an 8×8×8 recess, then repair parts with 2×2×2 and 4×4×4. Try all
+   three lines and the plane on several face orientations. Green cells should become solid;
+   existing solid parts must stay untouched.
+3. **Boundary containment:** place two hosts together. Try Add at their outer faces and
+   at recesses beside the seam. The target must stay within one host, with no spillover.
+4. **Mixed history:** make five distinct cuts and three additions. Undo eight times, then
+   redo eight times. Compare exact shapes/counts at each step. Switch brush/operation in
+   between; settings changes should not add history entries.
+5. **Branching:** undo two edits, make a new cut or addition, and confirm redo becomes zero.
+   In contrast, an Add stroke over already-filled cells must not discard available redo.
+6. **History limit:** make more than 32 successful edits on one host. The count caps at 32;
+   undo stops after those most recent edits. Another host keeps its own history.
+7. **Obstruction:** stand in a carved space and try a brush that would refill your occupied
+   cells. It should refuse the whole edit. Move aside and repeat. Try undo/redo that restores
+   those cells too; a refusal must preserve the history count.
+8. **Persistence:** save after mixed edits, exit, and reopen. Verify shape, operation and
+   brush survive. Expect one saved undo and zero redo; try undo then redo. Repeat after
+   moving far enough away to unload the host. F3+T should refresh assets without editing it.
+9. **Empty host:** carve away the last cells, remain nearby with the same tool, and use
+   `/astra undo`. Redo should empty it again; undo should recover it again.
+
+Automated gates add six-face placement/boundary checks, all brushes, operation persistence,
+exact mixed-history order, 32-step bounds, branching/no-ops, saved-undo compatibility, real
+item interaction, active-world entity obstruction and retry, history sync counts, green
+preview emission, expanded menu layouts, and Add/undo/redo render mesh rebuilding. All
+previous lifecycle and render gates still run.
+
 ## Precision testing tools (0.1.5)
 
 Hold the chisel in your **main hand** to use the new controls:
@@ -40,7 +105,7 @@ Automated gates verify preview coverage against real cuts on full, empty, patter
 random grids; immutable snapshots; command registration and held-tool validation; highlight
 coordinates and visibility; and mode-menu layout/extraction at two GUI sizes. Existing
 lifecycle and renderer gates remain enabled. Live appearance and other-mod compatibility
-still need the in-game check above. Bit placement and deeper history are future work.
+still need the in-game check above. See 0.1.6 above for placement and deeper history.
 
 ## Chisel modes (0.1.4)
 
@@ -70,7 +135,7 @@ Modes cycle in the table's order. Larger cubes snap to subdivisions of the host 
 for example the 4×4×4 tool targets cell coordinates 0–3, 4–7, 8–11, or 12–15 on each axis.
 Every cut stays inside the clicked host. Empty cells are skipped. Each successful click
 publishes one revision and keeps one whole-cut undo snapshot; an empty cut preserves undo.
-Undo is one level per host, shared between players. The black outline shows the remaining
+In 0.1.4, undo was one level per host; 0.1.6 expands the loaded-session history. The black outline shows the remaining
 host shape; the amber preview shows the region the next cut will remove.
 
 The mode test gate covers all six faces, boundaries, exact selected cells, actual item

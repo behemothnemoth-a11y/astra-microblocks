@@ -33,6 +33,18 @@ public final class MicroblockHitResolver {
     private MicroblockHitResolver() {
     }
 
+    /** Adjacent empty-side cell; never clamp a placement back inside the host. */
+    public static java.util.Optional<Cell> resolveForAddition(BlockHitResult hit) {
+        Cell solid = resolveForRemoval(hit);
+        Direction face = hit.getDirection();
+        int x = solid.x() + face.getStepX();
+        int y = solid.y() + face.getStepY();
+        int z = solid.z() + face.getStepZ();
+        if (x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16)
+            return java.util.Optional.empty();
+        return java.util.Optional.of(new Cell(x,y,z));
+    }
+
     /**
      * Immutable resolved microcell coordinate.
      */

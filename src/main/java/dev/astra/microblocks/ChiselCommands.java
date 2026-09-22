@@ -26,7 +26,17 @@ public final class ChiselCommands {
                     return 0;
                 }));
             }
-            dispatcher.register(Commands.literal("astra").then(modes));
+            var operations = Commands.literal("operation");
+            for (ChiselOperation operation : ChiselOperation.values()) {
+                operations.then(Commands.literal(operation.id()).executes(context -> {
+                    Player player = context.getSource().getPlayerOrException();
+                    if (!player.getMainHandItem().is(AstraMicroblocks.ASTRA_CHISEL)) return 0;
+                    operation.store(player.getMainHandItem());
+                    player.sendOverlayMessage(Component.literal("Astra Chisel: " + operation.label()));
+                    return 1;
+                }));
+            }
+            dispatcher.register(Commands.literal("astra").then(modes).then(operations));
         });
     }
 }

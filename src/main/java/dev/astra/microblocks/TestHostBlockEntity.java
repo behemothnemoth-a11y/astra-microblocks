@@ -25,9 +25,76 @@ public final class TestHostBlockEntity extends BlockEntity {
             new MicroblockGrid();
 
     /*
-     * Prototype one-level undo.
+     * Persisted last-edit snapshot; the older session history remains bounded and transient.
      */
     private MicroblockGrid undoGrid;
+    public static final int HISTORY_LIMIT = 32;
+    private final java.util.ArrayDeque<MicroblockGrid> olderUndo = new java.util.ArrayDeque<>();
+    private final java.util.ArrayDeque<MicroblockGrid> redoHistory = new java.util.ArrayDeque<>();
+    private int syncedUndo = -1, syncedRedo = -1;
+
+    public int undoDepth() {
+        return level != null && level.isClientSide() && syncedUndo >= 0 ? syncedUndo
+                : (undoGrid == null ? 0 : 1 + olderUndo.size());
+    }
+    public int redoDepth() {
+        return level != null && level.isClientSide() && syncedRedo >= 0 ? syncedRedo : redoHistory.size();
+    }
+
+    /** Player edits keep bounded session history; legacy data-layer helpers retain their contract. */
+    public int editCells(MicroblockGrid selection, ChiselOperation operation) {
+        MicroblockGrid edited = grid.copy();
+        int changed = 0;
+        for (int y=0;y<16;y++) for (int z=0;z<16;z++) for (int x=0;x<16;x++)
+            if (selection.isOccupied(x,y,z) && edited.setOccupied(x,y,z,operation == ChiselOperation.ADD)) changed++;
+        if (changed == 0) return 0;
+        if (!canRestore(edited)) return -1;
+        pushUndo();
+        redoHistory.clear();
+        grid = edited;
+        finishEdit();
+        return changed;
+    }
+
+    private void pushUndo() {
+        if (undoGrid != null) olderUndo.addLast(undoGrid);
+        while (olderUndo.size() >= HISTORY_LIMIT) olderUndo.removeFirst();
+        undoGrid = grid.copy();
+    }
+
+    public boolean undoEdit() {
+        if (undoGrid == null || !canRestore(undoGrid)) return false;
+        redoHistory.addLast(grid.copy());
+        grid = undoGrid;
+        undoGrid = olderUndo.pollLast();
+        finishEdit();
+        return true;
+    }
+
+    public boolean redoEdit() {
+        MicroblockGrid next = redoHistory.peekLast();
+        if (next == null || !canRestore(next)) return false;
+        pushUndo();
+        grid = redoHistory.removeLast();
+        finishEdit();
+        return true;
+    }
+
+    private boolean canRestore(MicroblockGrid next) {
+        if (level == null || level.isClientSide()) return true;
+        MicroblockGrid added = next.copy();
+        for (int y=0;y<16;y++) for (int z=0;z<16;z++) for (int x=0;x<16;x++)
+            if (grid.isOccupied(x,y,z)) added.remove(x,y,z);
+        if (added.isEmpty()) return true;
+        var shape = MicroblockShape.build(added).move(worldPosition.getX(),worldPosition.getY(),worldPosition.getZ());
+        for (var entity : level.getEntities((net.minecraft.world.entity.Entity) null,shape.bounds(), entity -> entity.isAlive() && !entity.isSpectator()
+                && (entity instanceof net.minecraft.world.entity.LivingEntity || entity.blocksBuilding))) {
+            if (net.minecraft.world.phys.shapes.Shapes.joinIsNotEmpty(shape,
+                    net.minecraft.world.phys.shapes.Shapes.create(entity.getBoundingBox()),
+                    net.minecraft.world.phys.shapes.BooleanOp.AND)) return false;
+        }
+        return true;
+    }
 
     private long revision;
 
@@ -159,6 +226,8 @@ public final class TestHostBlockEntity extends BlockEntity {
                 undoGrid;
 
         undoGrid = null;
+        olderUndo.clear();
+        redoHistory.clear();
         grid = previous;
 
         revision++;
@@ -167,6 +236,8 @@ public final class TestHostBlockEntity extends BlockEntity {
     }
 
     private void beginEdit() {
+        olderUndo.clear();
+        redoHistory.clear();
         undoGrid = grid.copy();
     }
 
@@ -280,6 +351,10 @@ public final class TestHostBlockEntity extends BlockEntity {
             ValueInput input
     ) {
         super.loadAdditional(input);
+        olderUndo.clear();
+        redoHistory.clear();
+        syncedUndo = input.getIntOr("session_undo_count", -1);
+        syncedRedo = input.getIntOr("session_redo_count", -1);
 
         boolean gridFormat =
                 input.getBooleanOr(
@@ -346,9 +421,10 @@ public final class TestHostBlockEntity extends BlockEntity {
     public CompoundTag getUpdateTag(
             HolderLookup.Provider registryLookup
     ) {
-        return saveWithoutMetadata(
-                registryLookup
-        );
+        CompoundTag tag = saveWithoutMetadata(registryLookup);
+        tag.putInt("session_undo_count", undoDepth());
+        tag.putInt("session_redo_count", redoDepth());
+        return tag;
     }
 
     @Override
