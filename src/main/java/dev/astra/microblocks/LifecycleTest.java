@@ -125,6 +125,7 @@ ServerLevel level =
         server.overworld();
         AstraChiselTest.run(level);
         ChiselModeTest.run(level);
+        ChiselPreviewTest.run();
         require(
                 level.setBlock(
                         TEST_POS,

@@ -8,6 +8,7 @@ public final class AstraMicroblocksClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         BlockEntityRenderers.register(AstraMicroblocks.TEST_HOST_ENTITY, TestHostBlockEntityRenderer::new);
+        ChiselInspector.register();
         if (Boolean.getBoolean("astra.renderTest")) ClientRenderTest.register();
     }
 }

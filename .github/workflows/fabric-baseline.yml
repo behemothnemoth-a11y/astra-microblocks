@@ -76,6 +76,7 @@ jobs:
             phase0.log
 
           grep -F "ASTRA_TEST: CHISEL_MODES_PASS" phase0.log
+          grep -F "ASTRA_TEST: CHISEL_PREVIEW_PASS" phase0.log
 
           test "$(cat run/astra-test-phase.txt)" = "1"
 
@@ -128,11 +129,12 @@ jobs:
           timeout 300s xvfb-run -a gradle runClientRenderTest \
             --no-daemon --console=plain | tee client-render.log
           grep -F "ASTRA_TEST: CLIENT_RENDER_PASS" client-render.log
+          grep -F "ASTRA_TEST: CHISEL_INSPECTOR_CLIENT_PASS" client-render.log
 
       - name: Verify JAR contents
         shell: bash
         run: |
-          JAR="build/libs/astra-microblocks-0.1.4.jar"
+          JAR="build/libs/astra-microblocks-0.1.5.jar"
 
           test -f "$JAR"
 
@@ -159,6 +161,6 @@ jobs:
       - name: Upload compiled mod
         uses: actions/upload-artifact@v7
         with:
-          name: astra-microblocks-0.1.4
-          path: build/libs/astra-microblocks-0.1.4.jar
+          name: astra-microblocks-0.1.5
+          path: build/libs/astra-microblocks-0.1.5.jar
           if-no-files-found: error

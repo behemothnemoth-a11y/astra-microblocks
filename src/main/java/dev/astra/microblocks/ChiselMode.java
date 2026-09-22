@@ -28,6 +28,7 @@ public enum ChiselMode {
     }
 
     public String label() { return label; }
+    public String id() { return id; }
     public ChiselMode next() { return values()[(ordinal() + 1) % values().length]; }
 
     public static ChiselMode read(ItemStack stack) {

@@ -2,6 +2,46 @@
 
 Minecraft 26.2 / Fabric prototype for editing a persistent 16×16×16 block with the Astra Chisel.
 
+## Precision testing tools (0.1.5)
+
+Hold the chisel in your **main hand** to use the new controls:
+
+- Press **G** to open the mode menu. Click a mode to select it directly. Rebind
+  **Open chisel mode menu** under **Astra Microblocks** in Minecraft's Controls if needed.
+  Selection changes the held tool on the server; opening or closing the menu makes no cut.
+- Aim at a host to see an amber preview of the occupied cells the next cut will remove.
+  Empty cells are excluded. The highlight shows the full cut depth through the host.
+- The top-left readout shows mode, occupied cells out of 4,096, and the next cut's cell count.
+  Crouching hides the cut preview and labels the action as undo. F1 hides the inspector.
+- The original crouch-right-click mode cycle and undo controls still work.
+- `/astra mode single`, `line_x`, `line_y`, `line_z`, `plane`, `cube_2`, `cube_4`, or `cube_8`
+  provides the same direct selection if another mod conflicts with the menu key.
+
+The preview shares the cut's hit resolver and selection rules, intersects the selection
+with the current occupied cells, and caches merged highlight boxes until the target or
+block revision changes. It does not change block data, collision or world render meshes.
+Counts reflect the client's latest received block state; a concurrent server edit can change
+what the eventual click removes.
+
+### Detailed live test
+
+1. Select each mode from G and confirm the HUD and tooltip agree.
+2. On a full host, check counts: Single 1, Line 16, Plane 256, cubes 8 / 64 / 512.
+3. Aim at all six faces, cell boundaries, and interior cavity walls. Compare the amber
+   highlight with the cut, then undo and check that the whole region returns.
+4. Aim a larger brush over an existing hole. The hole must stay unhighlighted and the
+   count must exclude its empty cells. Neighboring hosts must remain untouched.
+5. Move the crosshair away, change tools, crouch, open the menu, and toggle F1. Check that
+   stale cut highlights disappear. Rebind G and confirm the readout shows the new key.
+6. Save and reopen the world. Confirm shape and selected mode survive; check the updated
+   preview, collision on narrow ledges, and undo. Repeat after F3+T resource reload.
+
+Automated gates verify preview coverage against real cuts on full, empty, patterned and
+random grids; immutable snapshots; command registration and held-tool validation; highlight
+coordinates and visibility; and mode-menu layout/extraction at two GUI sizes. Existing
+lifecycle and renderer gates remain enabled. Live appearance and other-mod compatibility
+still need the in-game check above. Bit placement and deeper history are future work.
+
 ## Chisel modes (0.1.4)
 
 The chisel is available in the creative **Tools & Utilities** tab; the sculptable host is
@@ -30,8 +70,8 @@ Modes cycle in the table's order. Larger cubes snap to subdivisions of the host 
 for example the 4×4×4 tool targets cell coordinates 0–3, 4–7, 8–11, or 12–15 on each axis.
 Every cut stays inside the clicked host. Empty cells are skipped. Each successful click
 publishes one revision and keeps one whole-cut undo snapshot; an empty cut preserves undo.
-Undo is one level per host, shared between players. There is no brush preview yet: the
-standard outline shows the host's remaining shape, not the region the next cut will remove.
+Undo is one level per host, shared between players. The black outline shows the remaining
+host shape; the amber preview shows the region the next cut will remove.
 
 The mode test gate covers all six faces, boundaries, exact selected cells, actual item
 controls, item save round trips, batch persistence/undo, partial brushes and empty-host undo.

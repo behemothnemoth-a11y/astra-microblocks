@@ -41,6 +41,7 @@ public final class ClientRenderTest {
 
     private static void run(Minecraft client) {
         verifyChiselItem(client);
+        verifyInspector(client);
         var host = new TestHostBlockEntity(BlockPos.ZERO, AstraMicroblocks.TEST_HOST.defaultBlockState());
         var registered = client.getBlockEntityRenderDispatcher()
                 .<TestHostBlockEntity, TestHostRenderState>getRenderer(host);
@@ -99,6 +100,48 @@ public final class ClientRenderTest {
         var sprite = client.getAtlasManager().get(new SpriteId(
                 TextureAtlas.LOCATION_BLOCKS, Identifier.withDefaultNamespace("block/stone")));
         require(TestHostBlockEntityRenderer.buildMesh(empty, sprite).size() == 0, "empty grid rendered surfaces");
+    }
+
+    private static void verifyInspector(Minecraft client) {
+        var grid = new dev.astra.microblocks.MicroblockGrid();
+        grid.remove(7,15,8);
+        var preview = dev.astra.microblocks.ChiselPreview.create(grid, dev.astra.microblocks.ChiselMode.LINE_X,
+                new dev.astra.microblocks.MicroblockHitResolver.Cell(7,15,8), net.minecraft.core.Direction.UP);
+        var collector = new net.minecraft.gizmos.SimpleGizmoCollector();
+        var pos = new BlockPos(-12,90,25);
+        try (var ignored = net.minecraft.gizmos.Gizmos.withCollector(collector)) { ChiselInspector.emit(preview,pos); }
+        var gizmos = collector.drainGizmos();
+        require(gizmos.size()==preview.boxes().size() && gizmos.size()==2, "preview should split around empty cell");
+        for (int i=0;i<gizmos.size();i++) {
+            var instance = gizmos.get(i);
+            require(instance.isAlwaysOnTop(), "preview hides cut depth");
+            require(instance.gizmo() instanceof net.minecraft.gizmos.CuboidGizmo, "preview is not a cuboid");
+            var drawn = (net.minecraft.gizmos.CuboidGizmo) instance.gizmo();
+            var box = preview.boxes().get(i);
+            var expected = new net.minecraft.world.phys.AABB(box.minX()/16.0,box.minY()/16.0,box.minZ()/16.0,
+                    box.maxX()/16.0,box.maxY()/16.0,box.maxZ()/16.0).move(pos).inflate(0.0005);
+            require(drawn.aabb().equals(expected), "preview moved or scaled incorrectly");
+            require(drawn.style().hasFill() && drawn.style().hasStroke(), "preview is invisible");
+        }
+        for (int[] size : new int[][] {{320,240},{640,360}}) {
+            var screen = new ChiselModeScreen(dev.astra.microblocks.ChiselMode.PLANE);
+            screen.init(size[0],size[1]);
+            require(screen.children().size()==9, "menu missing mode or close button");
+            int selected = 0;
+            for (var child : screen.children()) {
+                var widget = (net.minecraft.client.gui.components.AbstractWidget) child;
+                require(widget.getX()>=0 && widget.getY()>=0 && widget.getRight()<=size[0]
+                        && widget.getBottom()<=size[1], "menu widget outside screen");
+                if (!widget.active) { selected++; require(widget.getMessage().getString().equals("Plane (clicked face)"), "wrong selected mode"); }
+            }
+            require(selected==1 && !screen.isPauseScreen(), "menu selection/pause state");
+            var state = new net.minecraft.client.renderer.state.gui.GuiRenderState();
+            var graphics = new net.minecraft.client.gui.GuiGraphicsExtractor(client,state,0,0);
+            screen.extractRenderState(graphics,0,0,0);
+            int[] textCount = {0}; state.forEachText(text -> textCount[0]++);
+            require(textCount[0]>=2, "menu did not extract title and current mode");
+        }
+        System.out.println("ASTRA_TEST: CHISEL_INSPECTOR_CLIENT_PASS");
     }
 
     private static void verifyChiselItem(Minecraft client) {

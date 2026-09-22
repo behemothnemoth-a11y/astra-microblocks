@@ -1,4 +1,6 @@
 {
   "item.astra_microblocks.astra_chisel": "Astra Chisel",
-  "block.astra_microblocks.test_host": "Astra Sculptable Host"
+  "block.astra_microblocks.test_host": "Astra Sculptable Host",
+  "key.astra_microblocks.modes": "Open chisel mode menu",
+  "key.category.astra_microblocks.chisel": "Astra Microblocks"
 }

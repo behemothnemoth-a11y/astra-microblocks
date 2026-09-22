@@ -24,6 +24,10 @@ public final class ChiselModeTest {
     private ChiselModeTest() {}
 
     public static void run(ServerLevel level) {
+        var command = level.getServer().getCommands().getDispatcher().getRoot().getChild("astra");
+        require(command != null && command.getChild("undo") != null, "mode registration replaced undo command");
+        for (ChiselMode mode : ChiselMode.values())
+            require(command.getChild("mode").getChild(mode.id()) != null, "missing mode command: " + mode);
         testSelections();
         ItemStack tool = new ItemStack(AstraMicroblocks.ASTRA_CHISEL);
         require(tool.getMaxStackSize() == 1, "tool must be unstackable");
@@ -74,6 +78,12 @@ public final class ChiselModeTest {
             @Override public GameType gameMode() { return GameType.CREATIVE; }
             @Override public void sendOverlayMessage(Component message) {}
         };
+        player.setItemInHand(InteractionHand.MAIN_HAND, tool);
+        for (ChiselMode mode : ChiselMode.values()) {
+            require(ChiselCommands.selectMode(player, mode) && ChiselMode.read(tool) == mode, "direct mode selection");
+        }
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        require(!ChiselCommands.selectMode(player, ChiselMode.SINGLE), "mode selection without held chisel");
         player.setItemInHand(InteractionHand.MAIN_HAND, tool);
         ChiselMode.SINGLE.store(tool);
         player.setShiftKeyDown(true);

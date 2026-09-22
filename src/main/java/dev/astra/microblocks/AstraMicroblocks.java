@@ -100,6 +100,7 @@ public final class AstraMicroblocks
                 .register(output -> output.accept(TEST_HOST));
 
         ChiselUndo.register();
+        ChiselCommands.register();
 
         TEST_HOST_ENTITY =
                 Registry.register(
