@@ -34,6 +34,11 @@ public final class AstraChiselTest {
     public static void run(
             ServerLevel level
     ) {
+        var stack = new net.minecraft.world.item.ItemStack(AstraMicroblocks.ASTRA_CHISEL);
+        require(!stack.isEmpty() && stack.getCount() == 1, "registered chisel stack is empty");
+        require(stack.getMaxStackSize() > 0, "chisel cannot fit in inventory");
+        require(AstraMicroblocks.id("astra_chisel").equals(
+                stack.get(net.minecraft.core.component.DataComponents.ITEM_MODEL)), "incorrect registered chisel model");
         /*
          * Place a fresh sculptable host.
          */

@@ -40,6 +40,7 @@ public final class ClientRenderTest {
     }
 
     private static void run(Minecraft client) {
+        verifyChiselItem(client);
         var host = new TestHostBlockEntity(BlockPos.ZERO, AstraMicroblocks.TEST_HOST.defaultBlockState());
         var registered = client.getBlockEntityRenderDispatcher()
                 .<TestHostBlockEntity, TestHostRenderState>getRenderer(host);
@@ -71,6 +72,21 @@ public final class ClientRenderTest {
         renderer.extractRenderState(host, restored, 0, Vec3.ZERO, null);
         require(restored.mesh != carved.mesh && restored.mesh.size() == 1536, "undo did not restore mesh");
 
+        for (var mode : dev.astra.microblocks.ChiselMode.values()) {
+            host.removeCells(mode.selection(new dev.astra.microblocks.MicroblockHitResolver.Cell(7,15,8),
+                    net.minecraft.core.Direction.UP));
+            TestHostRenderState batch = renderer.createRenderState();
+            renderer.extractRenderState(host, batch, 0, Vec3.ZERO, null);
+            require(batch.mesh != restored.mesh, "batch cut did not invalidate mesh: " + mode);
+            verifyMesh(client, host, batch.mesh);
+            TestHostRenderState cached = renderer.createRenderState();
+            renderer.extractRenderState(host, cached, 0, Vec3.ZERO, null);
+            require(cached.mesh == batch.mesh, "batch mesh not cached: " + mode);
+            host.undo();
+            renderer.extractRenderState(host, restored, 0, Vec3.ZERO, null);
+            require(restored.mesh.size() == 1536 && restored.mesh != batch.mesh, "batch undo mesh: " + mode);
+        }
+
         var replacement = new TestHostBlockEntity(BlockPos.ZERO, AstraMicroblocks.TEST_HOST.defaultBlockState());
         replacement.removeCell(0, 0, 0);
         TestHostRenderState replaced = renderer.createRenderState();
@@ -83,6 +99,26 @@ public final class ClientRenderTest {
         var sprite = client.getAtlasManager().get(new SpriteId(
                 TextureAtlas.LOCATION_BLOCKS, Identifier.withDefaultNamespace("block/stone")));
         require(TestHostBlockEntityRenderer.buildMesh(empty, sprite).size() == 0, "empty grid rendered surfaces");
+    }
+
+    private static void verifyChiselItem(Minecraft client) {
+        // The title-screen smoke client has no world's bound item components yet.
+        // Supply an isolated holder to test the loaded icon/hand model only.
+        // Registered stack defaults are checked by AstraChiselTest in a real server world.
+        var components = net.minecraft.core.component.DataComponentMap.builder()
+                .set(net.minecraft.core.component.DataComponents.ITEM_MODEL, AstraMicroblocks.id("astra_chisel"))
+                .build();
+        var stack = new net.minecraft.world.item.ItemStack(
+                new net.minecraft.core.Holder.Direct<>(AstraMicroblocks.ASTRA_CHISEL, components), 1);
+        for (var context : new net.minecraft.world.item.ItemDisplayContext[] {
+                net.minecraft.world.item.ItemDisplayContext.GUI,
+                net.minecraft.world.item.ItemDisplayContext.FIRST_PERSON_RIGHT_HAND}) {
+            var state = new net.minecraft.client.renderer.item.ItemStackRenderState();
+            client.getItemModelResolver().updateForTopItem(state, stack, context, null, null, 0);
+            require(!state.isEmpty(), "chisel has no model in " + context);
+            require(state.getModelBoundingBox().getSize() > 0, "chisel has no visible geometry in " + context);
+        }
+        System.out.println("ASTRA_TEST: CHISEL_ITEM_MODEL_PASS");
     }
 
     private static void verifyMesh(Minecraft client, TestHostBlockEntity host, Mesh mesh) {

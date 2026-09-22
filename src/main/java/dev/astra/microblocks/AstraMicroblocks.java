@@ -1,6 +1,7 @@
 package dev.astra.microblocks;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 
 import net.minecraft.core.Registry;
@@ -8,6 +9,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -60,7 +62,7 @@ public final class AstraMicroblocks
     public static final AstraChiselItem ASTRA_CHISEL =
             new AstraChiselItem(
                     new Item.Properties()
-                            .setId(ASTRA_CHISEL_KEY)
+                            .stacksTo(1).setId(ASTRA_CHISEL_KEY)
             );
 
     public static BlockEntityType<TestHostBlockEntity>
@@ -91,6 +93,13 @@ public final class AstraMicroblocks
                 ASTRA_CHISEL_KEY,
                 ASTRA_CHISEL
         );
+
+        CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.TOOLS_AND_UTILITIES)
+                .register(output -> output.accept(ASTRA_CHISEL));
+        CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.BUILDING_BLOCKS)
+                .register(output -> output.accept(TEST_HOST));
+
+        ChiselUndo.register();
 
         TEST_HOST_ENTITY =
                 Registry.register(

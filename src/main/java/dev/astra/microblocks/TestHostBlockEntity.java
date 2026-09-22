@@ -95,6 +95,21 @@ public final class TestHostBlockEntity extends BlockEntity {
         return changed;
     }
 
+    /** Commit a whole tool stroke with one undo snapshot and one published revision. */
+    public int removeCells(MicroblockGrid selection) {
+        MicroblockGrid edited = grid.copy();
+        int removed = 0;
+        for (int y = 0; y < MicroblockGrid.SIZE; y++)
+            for (int z = 0; z < MicroblockGrid.SIZE; z++)
+                for (int x = 0; x < MicroblockGrid.SIZE; x++)
+                    if (selection.isOccupied(x, y, z) && edited.remove(x, y, z)) removed++;
+        if (removed == 0) return 0;
+        beginEdit();
+        grid = edited;
+        finishEdit();
+        return removed;
+    }
+
     public boolean addCell(
             int x,
             int y,

@@ -75,6 +75,8 @@ jobs:
             "ASTRA_TEST: MICROBLOCK_RENDER_MESH_PASS" \
             phase0.log
 
+          grep -F "ASTRA_TEST: CHISEL_MODES_PASS" phase0.log
+
           test "$(cat run/astra-test-phase.txt)" = "1"
 
           echo "=== ASTRA LIFECYCLE PHASE 1 ==="
@@ -130,7 +132,7 @@ jobs:
       - name: Verify JAR contents
         shell: bash
         run: |
-          JAR="build/libs/astra-microblocks-0.1.3.jar"
+          JAR="build/libs/astra-microblocks-0.1.4.jar"
 
           test -f "$JAR"
 
@@ -157,6 +159,6 @@ jobs:
       - name: Upload compiled mod
         uses: actions/upload-artifact@v7
         with:
-          name: astra-microblocks-0.1.3
-          path: build/libs/astra-microblocks-0.1.3.jar
+          name: astra-microblocks-0.1.4
+          path: build/libs/astra-microblocks-0.1.4.jar
           if-no-files-found: error
