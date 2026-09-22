@@ -119,6 +119,7 @@ testMicroblockGrid();
 MicroblockShapeTest.run();
 MicroblockMesherTest.run();
 MicroblockHitResolverTest.run();
+MicroblockRenderMeshTest.run();
 
 ServerLevel level =
         server.overworld();AstraChiselTest.run(level);

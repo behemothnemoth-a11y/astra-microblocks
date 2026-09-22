@@ -41,10 +41,30 @@ public final class MicroblockRenderMesh {
                 );
             }
         }
+
+        /** Corners wind counterclockwise when viewed from the exposed (air) side. */
+        public Vertex vertex(int corner) {
+            if (corner < 0 || corner > 3) {
+                throw new IndexOutOfBoundsException("corner must be between 0 and 3");
+            }
+            int right = corner >= 2 ? 1 : 0;
+            int top = corner == 0 || corner == 3 ? 1 : 0;
+            return switch (direction) {
+                case WEST -> new Vertex(x, y + top, z + right);
+                case EAST -> new Vertex(x + 1, y + top, z + 1 - right);
+                case DOWN -> new Vertex(x + right, y, z + top);
+                case UP -> new Vertex(x + right, y + 1, z + 1 - top);
+                case NORTH -> new Vertex(x + 1 - right, y + top, z);
+                case SOUTH -> new Vertex(x + right, y + top, z + 1);
+            };
+        }
     }
 
+    /** Exact grid-boundary position; divide by SIZE when submitting block-local geometry. */
+    public record Vertex(int x, int y, int z) {}
+
     /**
-     * Generates every visible face in deterministic XYZ order.
+     * Generates every exposed face in grid index order (X fastest, then Z, then Y).
      */
     public static List<Face> build(
             MicroblockGrid grid

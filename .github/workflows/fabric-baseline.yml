@@ -71,6 +71,10 @@ jobs:
             "ASTRA_TEST: PHASE0_PASS" \
             phase0.log
 
+          grep -F \
+            "ASTRA_TEST: MICROBLOCK_RENDER_MESH_PASS" \
+            phase0.log
+
           test "$(cat run/astra-test-phase.txt)" = "1"
 
           echo "=== ASTRA LIFECYCLE PHASE 1 ==="
