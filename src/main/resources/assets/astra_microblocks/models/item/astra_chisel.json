@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/handheld",
   "textures": {
-    "layer0": "minecraft:item/iron_pickaxe"
+    "layer0": "astra_microblocks:item/astra_chisel"
   }
 }

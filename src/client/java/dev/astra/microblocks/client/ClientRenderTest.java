@@ -25,15 +25,17 @@ public final class ClientRenderTest {
     public static void register() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // The initial atlas/model reload completes before the loading overlay closes.
-            if (finished || !client.isGameLoadFinished()) return;
+            if (finished) { ChiselMenuCapture.tick(client); return; }
+            if (!client.isGameLoadFinished()) return;
             finished = true;
             try {
                 run(client);
                 System.out.println("ASTRA_TEST: CLIENT_RENDER_PASS");
+                if (Boolean.getBoolean("astra.menuScreenshot")) ChiselMenuCapture.start(client);
+                else client.stop();
             } catch (Throwable failure) {
                 failure.printStackTrace();
                 System.out.println("ASTRA_TEST: CLIENT_RENDER_FAIL");
-            } finally {
                 client.stop();
             }
         });
@@ -41,6 +43,7 @@ public final class ClientRenderTest {
 
     private static void run(Minecraft client) {
         verifyChiselItem(client);
+        ChiselWheelTest.run(client);
         verifyInspector(client);
         verifyMaterials(client);
         var host = new TestHostBlockEntity(BlockPos.ZERO, AstraMicroblocks.TEST_HOST.defaultBlockState());
@@ -269,6 +272,22 @@ public final class ClientRenderTest {
             require(!state.isEmpty(), "chisel has no model in " + context);
             require(state.getModelBoundingBox().getSize() > 0, "chisel has no visible geometry in " + context);
         }
+        var texture = AstraMicroblocks.id("item/astra_chisel");
+        var sprite = client.getAtlasManager().get(new SpriteId(TextureAtlas.LOCATION_ITEMS,texture));
+        require(sprite.contents().name().equals(texture),"custom chisel texture missing from atlas");
+        require(sprite.contents().width()==64 && sprite.contents().height()==64,"unexpected chisel sprite size");
+        try (var stream=ClientRenderTest.class.getResourceAsStream("/assets/astra_microblocks/textures/item/astra_chisel.png")) {
+            require(stream!=null,"chisel PNG missing");
+            var png=javax.imageio.ImageIO.read(stream);
+            require(png.getColorModel().hasAlpha(),"chisel texture lacks transparency");
+            int solid=0;
+            for (int y=0;y<64;y++) for (int x=0;x<64;x++) {
+                int alpha=png.getRGB(x,y)>>>24;
+                if (alpha>128) solid++;
+                if (x==0 || y==0 || x==63 || y==63) require(alpha==0,"chisel touches texture border");
+            }
+            require(solid>300 && solid<2800,"chisel is empty or has an opaque matte");
+        } catch (java.io.IOException failure) { throw new IllegalStateException(failure); }
         System.out.println("ASTRA_TEST: CHISEL_ITEM_MODEL_PASS");
     }
 

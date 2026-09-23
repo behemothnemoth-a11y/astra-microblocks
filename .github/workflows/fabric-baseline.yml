@@ -138,11 +138,12 @@ jobs:
           grep -F "ASTRA_TEST: CLIENT_RENDER_PASS" client-render.log
           grep -F "ASTRA_TEST: CHISEL_INSPECTOR_CLIENT_PASS" client-render.log
           grep -F "ASTRA_TEST: MATERIAL_CLIENT_PASS" client-render.log
+          grep -F "ASTRA_TEST: CHISEL_WHEEL_PASS" client-render.log
 
       - name: Verify JAR contents
         shell: bash
         run: |
-          JAR="build/libs/astra-microblocks-0.1.7.jar"
+          JAR="build/libs/astra-microblocks-0.1.8.jar"
 
           test -f "$JAR"
 
@@ -168,11 +169,14 @@ jobs:
           jar tf "$JAR" | grep 'assets/astra_microblocks/models/block/oak_host.json'
           jar tf "$JAR" | grep 'assets/astra_microblocks/blockstates/oak_host.json'
 
+          jar tf "$JAR" | grep 'assets/astra_microblocks/textures/item/astra_chisel.png'
+          jar tf "$JAR" | grep 'dev/astra/microblocks/client/ChiselWheelLayout.class'
+
           echo "ASTRA PERMANENT SOURCE BUILD PASSED"
 
       - name: Upload compiled mod
         uses: actions/upload-artifact@v7
         with:
-          name: astra-microblocks-0.1.7
-          path: build/libs/astra-microblocks-0.1.7.jar
+          name: astra-microblocks-0.1.8
+          path: build/libs/astra-microblocks-0.1.8.jar
           if-no-files-found: error

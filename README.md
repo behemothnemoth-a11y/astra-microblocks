@@ -2,6 +2,31 @@
 
 Minecraft 26.2 / Fabric prototype for editing a persistent 16×16×16 block with the Astra Chisel.
 
+## Holographic wheel test package (0.1.8)
+
+Press **G** with the chisel in your main hand to open the new translucent cyan/violet
+brush wheel. Its eight sections select brushes; **Cut / Add** remain in the center.
+Click a section to request the setting; its highlight follows the server's response.
+Moving across the wheel or its gaps does not select or apply a brush. The menu stays
+open for settings changes. Done and Escape close it, and Tab/Enter provide keyboard access.
+
+**Undo / Redo** are grouped beside the wheel under **LAST EDIT**. That panel shows the
+held tool's remembered material and history counts when its target is valid and in reach;
+it reports an absent, changed or unreachable target otherwise. These actions still use
+that tool's last edited host, while crouch-right-click undo uses the aimed-at host.
+The in-world HUD's counts still describe the aimed-at host. Commands and history rules
+are unchanged; the wheel does not carve just by selecting a brush.
+
+The chisel now has its own transparent 64�64 sprite: an obsidian blade with a violet
+edge, brown wrapped mason's grip, iron collar and striking cap. Existing chisels use it
+automatically. The original generated artwork and integration notes are in [art](art/README.md).
+
+See [the 0.1.8 testing plan](TESTING-0.1.8.md) for GUI scales, click boundaries, keyboard
+navigation, tool appearance, both materials, history targeting, and reload checks.
+The 0.1.7 live reload was confirmed by the tester before this release. All earlier automated
+lifecycle/material gates remain enabled; the new client gate tests actual wheel clicks,
+seams, keyboard focus/activation, delayed server selection, resize, and sprite alpha.
+
 ## Two-material workshop test package (0.1.7)
 
 **New:** Astra Sculptable Oak Planks joins Astra Sculptable Stone in the creative
