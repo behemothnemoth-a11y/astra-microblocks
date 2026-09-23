@@ -82,6 +82,7 @@ jobs:
           grep -F "ASTRA_TEST: MATERIAL_WORKSHOP_PASS" phase0.log
           grep -F "ASTRA_TEST: MIXED_WORKSHOP_PASS" phase0.log
           grep -F "ASTRA_TEST: WORKFLOW_PASS" phase0.log
+          grep -F "ASTRA_TEST: SCULPTURE_PASS" phase0.log
 
           test "$(cat run/astra-test-phase.txt)" = "1"
 
@@ -108,6 +109,7 @@ jobs:
           grep -F "ASTRA_TEST: MATERIAL_PERSISTENCE_PASS" phase1.log
           grep -F "ASTRA_TEST: MIXED_PERSISTENCE_PASS" phase1.log
           grep -F "ASTRA_TEST: WORKFLOW_PERSISTENCE_PASS" phase1.log
+          grep -F "ASTRA_TEST: SCULPTURE_PERSISTENCE_PASS" phase1.log
 
           test "$(cat run/astra-test-phase.txt)" = "2"
 
@@ -126,6 +128,7 @@ jobs:
           grep -F "ASTRA_TEST: MATERIAL_RESTART_PASS" phase2.log
           grep -F "ASTRA_TEST: MIXED_RESTART_PASS" phase2.log
           grep -F "ASTRA_TEST: WORKFLOW_RESTART_PASS" phase2.log
+          grep -F "ASTRA_TEST: SCULPTURE_RESTART_PASS" phase2.log
 
           test "$(cat run/astra-test-phase.txt)" = "3"
 
@@ -146,12 +149,13 @@ jobs:
           grep -F "ASTRA_TEST: MATERIAL_CLIENT_PASS" client-render.log
           grep -F "ASTRA_TEST: MIXED_CLIENT_PASS" client-render.log
           grep -F "ASTRA_TEST: WORKFLOW_CLIENT_PASS" client-render.log
+          grep -F "ASTRA_TEST: SCULPTURE_CLIENT_PASS" client-render.log
           grep -F "ASTRA_TEST: CHISEL_WHEEL_PASS" client-render.log
 
       - name: Verify JAR contents
         shell: bash
         run: |
-          JAR="build/libs/astra-microblocks-0.1.10.jar"
+          JAR="build/libs/astra-microblocks-0.2.0.jar"
 
           test -f "$JAR"
 
@@ -179,12 +183,16 @@ jobs:
 
           jar tf "$JAR" | grep 'assets/astra_microblocks/textures/item/astra_chisel.png'
           jar tf "$JAR" | grep 'dev/astra/microblocks/client/ChiselWheelLayout.class'
+          jar tf "$JAR" | grep 'dev/astra/microblocks/SculptureBlockItem.class'
+          jar tf "$JAR" | grep 'dev/astra/microblocks/client/SculptureItemRenderer.class'
+          jar tf "$JAR" | grep 'dev/astra/microblocks/client/DesignScreen.class'
+          jar tf "$JAR" | grep 'data/minecraft/tags/block/mineable/pickaxe.json'
 
           echo "ASTRA PERMANENT SOURCE BUILD PASSED"
 
       - name: Upload compiled mod
         uses: actions/upload-artifact@v7
         with:
-          name: astra-microblocks-0.1.10
-          path: build/libs/astra-microblocks-0.1.10.jar
+          name: astra-microblocks-0.2.0
+          path: build/libs/astra-microblocks-0.2.0.jar
           if-no-files-found: error

@@ -24,7 +24,7 @@ import org.lwjgl.glfw.GLFW;
 
 /** Extracts a cached, read-only preview on the client, before rendering consumes it. */
 public final class ChiselInspector {
-    private static KeyMapping menuKey, undoKey, redoKey, sampleKey;
+    private static KeyMapping menuKey, undoKey, redoKey, sampleKey, designKey;
     private static dev.astra.microblocks.HostMaterial cachedMaterial;
     private static TestHostBlockEntity cachedHost;
     private static long cachedRevision;
@@ -42,7 +42,9 @@ public final class ChiselInspector {
         undoKey=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.astra_microblocks.undo",GLFW.GLFW_KEY_Z,category));
         redoKey=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.astra_microblocks.redo",GLFW.GLFW_KEY_Y,category));
         sampleKey=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.astra_microblocks.sample",GLFW.GLFW_KEY_P,category));
+        designKey=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.astra_microblocks.design",GLFW.GLFW_KEY_H,category));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while(designKey.consumeClick()) if(client.gui.screen()==null && holdingChisel(client)) client.gui.setScreen(new DesignScreen());
             while (menuKey.consumeClick()) {
                 if (client.gui.screen() == null && holdingChisel(client))
                     client.gui.setScreen(new ChiselModeScreen(ChiselMode.read(client.player.getMainHandItem()), ChiselOperation.read(client.player.getMainHandItem())));
@@ -72,7 +74,8 @@ public final class ChiselInspector {
             String second = target == null ? "Aim at a sculptable block" :
                     "Cells: " + target.preview().occupied() + "/4096  |  " +
                     (client.player.isShiftKeyDown() ? "Undo last edit" : (target.outside() ? "Outside host" : "Next " + operation.id() + ": " + target.preview().affected()));
-            String third = menuKey.getTranslatedKeyMessage().getString() + ": modes  |  Crouch + click air: cycle";
+            String third = menuKey.getTranslatedKeyMessage().getString() + ": brushes  |  "
+                    + designKey.getTranslatedKeyMessage().getString() + ": designs";
             int width = Math.max(client.font.width(first), Math.max(client.font.width(second), client.font.width(third)));
             String fourth = target == null ? (operation == ChiselOperation.ADD ? "Add fills cavities within this host" : operation == ChiselOperation.REPLACE ? "Replace changes material, preserving shape" : "Cut removes cells within one host") : "Undo: " + cachedHost.undoDepth() + "  |  Redo: " + cachedHost.redoDepth();
             String fifth=target == null ? undoKey.getTranslatedKeyMessage().getString()+": undo / "

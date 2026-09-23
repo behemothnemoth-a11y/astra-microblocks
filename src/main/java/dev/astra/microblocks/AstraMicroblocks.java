@@ -88,7 +88,7 @@ public final class AstraMicroblocks
         Registry.register(
                 BuiltInRegistries.ITEM,
                 TEST_HOST_ITEM_KEY,
-                new BlockItem(
+                new SculptureBlockItem(
                         TEST_HOST,
                         new Item.Properties()
                                 .useBlockDescriptionPrefix()
@@ -98,7 +98,7 @@ public final class AstraMicroblocks
 
         Registry.register(BuiltInRegistries.BLOCK, OAK_HOST_KEY, OAK_HOST);
         Registry.register(BuiltInRegistries.ITEM, OAK_HOST_ITEM_KEY,
-                new BlockItem(OAK_HOST, new Item.Properties()
+                new SculptureBlockItem(OAK_HOST, new Item.Properties()
                         .useBlockDescriptionPrefix().setId(OAK_HOST_ITEM_KEY)));
 
         Registry.register(
@@ -114,6 +114,7 @@ public final class AstraMicroblocks
 
         ChiselUndo.register();
         ChiselCommands.register();
+        DesignCommands.register();
 
         TEST_HOST_ENTITY =
                 Registry.register(

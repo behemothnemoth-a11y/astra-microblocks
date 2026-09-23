@@ -2,6 +2,39 @@
 
 Minecraft 26.2 / Fabric prototype for editing a persistent 16×16×16 block with the Astra Chisel.
 
+## Reusable sculptures (0.2.0)
+
+Carved stone/oak blocks can now become reusable **sculpture items**, carrying all 4096
+cells and both materials. Normal creative pick-block captures the sculpture. Mining
+with a suitable tool drops its saved design; placing that item restores the exact shape.
+Inventory, hand and dropped-item models show the sculpture itself. Different designs
+have different item components, so they cannot accidentally merge into the same stack.
+
+**H opens the Design Workbench while holding a chisel.** Aim at a sculpture and Copy
+to save its design on that chisel. Rotate X/Y/Z or Mirror X/Y/Z changes the saved copy;
+Stamp replaces the aimed host's shape and materials as one undoable edit. Get sculpture
+item exports the clipboard into inventory in Creative. The workbench shows the copied
+design and its material counts. G continues to open the existing brush wheel.
+
+Holding a sculpture item shows a placement ghost: cyan where it fits, red when blocked.
+Crouch + right-click air rotates the held sculpture 90 degrees around Y. Placement and
+stamping check the actual occupied cells against entities, including undo/redo of a stamp.
+The clipboard and sculpture items survive storage and restart. New placements start a
+fresh history; existing host histories still retain the full available 32-edit timeline.
+
+Commands: `/astra design copy`, `stamp`, `export`, `rotate_x`, `rotate_y`, `rotate_z`,
+`mirror_x`, `mirror_y`, `mirror_z` (each action follows `/astra design`). H is rebindable
+under Controls > Astra Microblocks. This remains a two-material free-building prototype;
+survival bit costs, a material bag, and multi-block patterns are not implemented.
+
+See [implementation and verification notes](docs/REUSABLE-SCULPTURES.md), including the
+original Chisels & Bits source references. Existing automated lifecycle, brush, mixed
+material, history and client gates remain required; this release adds real item placement,
+pick/drop preservation, transforms, stamping, obstruction and three-boot inventory tests.
+
+The sections below describe earlier releases; their historical limitations may have
+been superseded by the current behavior above.
+
 ## History and material workflow package (0.1.10)
 
 The full available undo/redo timeline now survives saving, chunk unloading and restart.
@@ -66,7 +99,7 @@ that tool's last edited host, while crouch-right-click undo uses the aimed-at ho
 The in-world HUD's counts still describe the aimed-at host. Commands and history rules
 are unchanged; the wheel does not carve just by selecting a brush.
 
-The chisel now has its own transparent 64�64 sprite: an obsidian blade with a violet
+The chisel now has its own transparent 64×64 sprite: an obsidian blade with a violet
 edge, brown wrapped mason's grip, iron collar and striking cap. Existing chisels use it
 automatically. The original generated artwork and integration notes are in [art](art/README.md).
 

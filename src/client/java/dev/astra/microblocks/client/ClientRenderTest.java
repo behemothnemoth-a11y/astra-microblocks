@@ -49,6 +49,7 @@ public final class ClientRenderTest {
         verifyMaterials(client);
         verifyMixedMaterials(client);
         verifyWorkflow(client);
+        verifySculptures(client);
         var host = new TestHostBlockEntity(BlockPos.ZERO, AstraMicroblocks.TEST_HOST.defaultBlockState());
         var registered = client.getBlockEntityRenderDispatcher()
                 .<TestHostBlockEntity, TestHostRenderState>getRenderer(host);
@@ -125,6 +126,51 @@ public final class ClientRenderTest {
         var sprite = client.getAtlasManager().get(new SpriteId(
                 TextureAtlas.LOCATION_BLOCKS, Identifier.withDefaultNamespace("block/stone")));
         require(TestHostBlockEntityRenderer.buildMesh(empty, sprite).size() == 0, "empty grid rendered surfaces");
+    }
+
+    private static void verifySculptures(Minecraft client) {
+        var renderer=new SculptureItemRenderer(client.getAtlasManager()::get);
+        for(var original:dev.astra.microblocks.HostMaterial.values()) {
+            var volume=dev.astra.microblocks.SculptureTest.pattern(original);
+            for(var axis:net.minecraft.core.Direction.Axis.values()) {
+                volume=dev.astra.microblocks.SculptureData.transform(volume,axis,false);
+                var stack=DesignScreen.previewItem(volume);
+                var host=new TestHostBlockEntity(BlockPos.ZERO,(original==dev.astra.microblocks.HostMaterial.STONE?AstraMicroblocks.TEST_HOST:AstraMicroblocks.OAK_HOST).defaultBlockState());
+                host.initializeDesign(volume);
+                var mesh=renderer.extractArgument(stack); verifyMesh(client,host,mesh);
+                require(renderer.extractArgument(stack)==mesh,"sculpture item mesh not cached");
+                for(var display:new net.minecraft.world.item.ItemDisplayContext[]{net.minecraft.world.item.ItemDisplayContext.GUI,
+                        net.minecraft.world.item.ItemDisplayContext.FIRST_PERSON_RIGHT_HAND,net.minecraft.world.item.ItemDisplayContext.GROUND}) {
+                    var state=new net.minecraft.client.renderer.item.ItemStackRenderState();
+                    client.getItemModelResolver().updateForTopItem(state,stack,display,null,null,0);
+                    require(!state.isEmpty() && state.getModelBoundingBox().getSize()>0,"dynamic sculpture item missing");
+                    var queue=new SubmitNodeStorage(); state.submit(new PoseStack(),queue,15728880,0,0);
+                    require(!queue.getSubmitsPerOrder().isEmpty(),"sculpture model did not submit");
+                }
+            }
+        }
+        for(int[] size:new int[][]{{320,240},{640,360}}) {
+            var commands=new java.util.ArrayList<String>();
+            var screen=new DesignScreen(commands::add,dev.astra.microblocks.SculptureTest.pattern(dev.astra.microblocks.HostMaterial.STONE));
+            screen.init(size[0],size[1]); require(screen.children().size()==10,"design workbench controls missing");
+            for(var child:screen.children()) {
+                var widget=(net.minecraft.client.gui.components.AbstractWidget)child;
+                require(widget.getX()>=0 && widget.getY()>=0 && widget.getRight()<=size[0] && widget.getBottom()<=size[1],"design controls outside GUI");
+            }
+            var graphics=new net.minecraft.client.gui.GuiGraphicsExtractor(client,new net.minecraft.client.renderer.state.gui.GuiRenderState(),0,0);
+            screen.extractRenderState(graphics,0,0,0);
+            for(var child:screen.children()) {
+                var button=(net.minecraft.client.gui.components.Button)child;
+                if(!button.getMessage().getString().equals("Done")) require(screen.mouseClicked(
+                        new net.minecraft.client.input.MouseButtonEvent(button.getX()+button.getWidth()/2.0,
+                                button.getY()+button.getHeight()/2.0,new net.minecraft.client.input.MouseButtonInfo(0,0)),false),
+                        "design button did not accept click");
+            }
+            require(commands.size()==9 && commands.contains("astra design copy") && commands.contains("astra design stamp")
+                    && commands.contains("astra design export") && commands.contains("astra design rotate_y")
+                    && commands.contains("astra design mirror_z"),"design commands not connected");
+        }
+        System.out.println("ASTRA_TEST: SCULPTURE_CLIENT_PASS");
     }
 
     private static void verifyWorkflow(Minecraft client) {

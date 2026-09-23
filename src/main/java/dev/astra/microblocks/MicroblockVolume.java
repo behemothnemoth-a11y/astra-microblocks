@@ -21,6 +21,7 @@ public final class MicroblockVolume {
         return new MicroblockVolume(grid, original == HostMaterial.OAK_PLANKS ? grid
                 : MicroblockGrid.fromLongArray(new long[64]), original);
     }
+    public HostMaterial original() { return original; }
     public MicroblockVolume copy() { return new MicroblockVolume(occupied, oak, original); }
     public MicroblockGrid occupancyCopy() { return occupied.copy(); }
     public MicroblockGrid oakCopy() { return oak.copy(); }

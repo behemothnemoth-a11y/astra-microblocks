@@ -70,7 +70,7 @@ public final class TestHostBlockEntityRenderer
         return buildMesh(grid, face -> sprite);
     }
 
-    private static Mesh buildMesh(MicroblockGrid grid,
+    static Mesh buildMesh(MicroblockGrid grid,
             java.util.function.Function<MicroblockRenderMesh.Face,TextureAtlasSprite> texture) {
         MutableMesh mesh = Renderer.get().mutableMesh();
         QuadEmitter emitter = mesh.emitter();

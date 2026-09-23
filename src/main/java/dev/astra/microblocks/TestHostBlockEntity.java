@@ -63,6 +63,21 @@ public final class TestHostBlockEntity extends BlockEntity {
         return changed;
     }
 
+    /** Whole-design edit follows the same no-op, obstruction and history rules as brushes. */
+    public int applyDesign(MicroblockVolume source) {
+        var next=new MicroblockVolume(source.occupancyCopy(),source.oakCopy(),HostMaterial.of(getBlockState()));
+        if(next.equals(grid)) return 0;
+        if(!canRestore(next)) return -1;
+        pushUndo(); redoHistory.clear(); grid=next; finishEdit(); return 1;
+    }
+    /** Called only for a newly placed host; item designs intentionally start with no history. */
+    public void initializeDesign(MicroblockVolume source) {
+        if(revision!=0 || undoGrid!=null || !olderUndo.isEmpty() || !redoHistory.isEmpty())
+            throw new IllegalStateException("Cannot initialize an edited host");
+        grid=new MicroblockVolume(source.occupancyCopy(),source.oakCopy(),HostMaterial.of(getBlockState()));
+        finishEdit();
+    }
+
     private void pushUndo() {
         if (undoGrid != null) olderUndo.addLast(undoGrid);
         while (olderUndo.size() >= HISTORY_LIMIT) olderUndo.removeFirst();

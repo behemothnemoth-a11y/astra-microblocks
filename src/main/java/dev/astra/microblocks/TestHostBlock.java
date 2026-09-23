@@ -111,6 +111,21 @@ public final class TestHostBlock extends BaseEntityBlock {
         );
     }
 
+    @Override protected net.minecraft.world.item.ItemStack getCloneItemStack(
+            net.minecraft.world.level.LevelReader level,BlockPos pos,BlockState state,boolean includeData) {
+        if(level.getBlockEntity(pos) instanceof TestHostBlockEntity host) return SculptureData.item(host.volumeCopy());
+        return new net.minecraft.world.item.ItemStack(this);
+    }
+    @Override protected java.util.List<net.minecraft.world.item.ItemStack> getDrops(
+            BlockState state,net.minecraft.world.level.storage.loot.LootParams.Builder params) {
+        if(params.getOptionalParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_ENTITY)
+                instanceof TestHostBlockEntity host) {
+            var stack=SculptureData.item(host.volumeCopy());
+            return stack.isEmpty()?java.util.List.of():java.util.List.of(stack);
+        }
+        return java.util.List.of(new net.minecraft.world.item.ItemStack(this));
+    }
+
     /**
      * Compatibility query retained for the lifecycle harness.
      */
