@@ -38,7 +38,7 @@ public final class TestHostBlockEntityRenderer
     // Values deliberately do not reference the host, so chunk unloading releases entries.
     private final Map<TestHostBlockEntity, CachedMesh> cache = new WeakHashMap<>();
 
-    private record CachedMesh(long revision, TextureAtlasSprite sprite, Mesh mesh) {}
+    private record CachedMesh(long revision, TextureAtlasSprite stone, TextureAtlasSprite oak, Mesh mesh) {}
 
     public TestHostBlockEntityRenderer(BlockEntityRendererProvider.Context context) {
         sprites = context.sprites();
@@ -54,21 +54,27 @@ public final class TestHostBlockEntityRenderer
                                    float tickProgress, Vec3 cameraPos,
                                    ModelFeatureRenderer.CrumblingOverlay crumblingOverlay) {
         BlockEntityRenderer.super.extractRenderState(host, state, tickProgress, cameraPos, crumblingOverlay);
-        TextureAtlasSprite sprite = sprites.get(new SpriteId(TextureAtlas.LOCATION_BLOCKS,
-                HostMaterial.of(host.getBlockState()).texture()));
+        TextureAtlasSprite stone = sprites.get(new SpriteId(TextureAtlas.LOCATION_BLOCKS,HostMaterial.STONE.texture()));
+        TextureAtlasSprite oak = sprites.get(new SpriteId(TextureAtlas.LOCATION_BLOCKS,HostMaterial.OAK_PLANKS.texture()));
         CachedMesh cached = cache.get(host);
-        // Sprite identity also invalidates UVs when a resource pack/atlas is reloaded.
-        if (cached == null || cached.revision() != host.revision() || cached.sprite() != sprite) {
-            cached = new CachedMesh(host.revision(), sprite, buildMesh(host.gridCopy(), sprite));
+        if (cached == null || cached.revision() != host.revision() || cached.stone() != stone || cached.oak() != oak) {
+            var volume = host.volumeCopy();
+            cached = new CachedMesh(host.revision(), stone, oak, buildMesh(volume.occupancyCopy(),
+                    face -> volume.materialAt(face.x(),face.y(),face.z()) == HostMaterial.OAK_PLANKS ? oak : stone));
             cache.put(host, cached);
         }
         state.mesh = cached.mesh();
     }
 
     static Mesh buildMesh(MicroblockGrid grid, TextureAtlasSprite sprite) {
+        return buildMesh(grid, face -> sprite);
+    }
+
+    private static Mesh buildMesh(MicroblockGrid grid,
+            java.util.function.Function<MicroblockRenderMesh.Face,TextureAtlasSprite> texture) {
         MutableMesh mesh = Renderer.get().mutableMesh();
         QuadEmitter emitter = mesh.emitter();
-        Material.Baked material = new Material.Baked(sprite, false);
+
         for (MicroblockRenderMesh.Face face : MicroblockRenderMesh.build(grid)) {
             // Topology has already culled occupied neighbors. Never let a full-block
             // cull test remove interior cavity walls or faces beside another carved host.
@@ -82,7 +88,7 @@ public final class TestHostBlockEntityRenderer
             }
             // Block-space UVs keep the material continuous across cells instead of repeating
             // a whole 16x16 texture on every individual microcell.
-            emitter.materialBake(material, MutableQuadView.BAKE_LOCK_UV);
+            emitter.materialBake(new Material.Baked(texture.apply(face),false), MutableQuadView.BAKE_LOCK_UV);
             emitter.color(-1, -1, -1, -1);
             emitter.emit();
         }

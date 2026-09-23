@@ -55,7 +55,8 @@ public final class AstraChiselItem extends Item {
             if (player != null) player.sendOverlayMessage(Component.literal("Add stays inside this block: aim at an inner face of a cavity"));
             return InteractionResult.SUCCESS;
         }
-        int changed = host.editCells(mode.selection(target.get(), context.getClickedFace()), operation);
+        int changed = host.editCells(mode.selection(target.get(), context.getClickedFace()), operation,
+                ChiselMaterial.read(context.getItemInHand()).resolve(host.getBlockState()));
         if (changed > 0) ChiselUndo.remember(context.getItemInHand(), level, host);
         if (player != null) player.sendOverlayMessage(Component.literal(changed < 0
                 ? "Placement blocked: an entity occupies the cells"
@@ -67,6 +68,7 @@ public final class AstraChiselItem extends Item {
     public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display,
                                 Consumer<Component> lines, TooltipFlag flag) {
         super.appendHoverText(stack, context, display, lines, flag);
+        lines.accept(Component.literal("Fill material: " + ChiselMaterial.read(stack).label()));
         lines.accept(Component.literal("Mode: " + ChiselMode.read(stack).label()));
         lines.accept(Component.literal("Right-click host: " + ChiselOperation.read(stack).label()));
         lines.accept(Component.literal("Crouch + right-click air: next mode"));

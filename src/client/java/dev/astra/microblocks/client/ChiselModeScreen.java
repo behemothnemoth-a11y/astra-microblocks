@@ -1,6 +1,7 @@
 package dev.astra.microblocks.client;
 
 import dev.astra.microblocks.ChiselMode;
+import dev.astra.microblocks.ChiselMaterial;
 import dev.astra.microblocks.ChiselOperation;
 import dev.astra.microblocks.HostMaterial;
 import dev.astra.microblocks.TestHostBlockEntity;
@@ -23,6 +24,8 @@ public final class ChiselModeScreen extends Screen {
     private ChiselMode current;
     private ChiselOperation operation;
     private ChiselWheelLayout wheel;
+    private ChiselMaterial material = ChiselMaterial.ORIGINAL;
+    private HoloButton materialButton;
     private final Map<ChiselMode, WheelButton> modeButtons = new EnumMap<>(ChiselMode.class);
     private final Map<ChiselOperation, HoloButton> operationButtons = new EnumMap<>(ChiselOperation.class);
     private final Consumer<String> testCommands;
@@ -70,9 +73,13 @@ public final class ChiselModeScreen extends Screen {
                 ignored -> send("astra undo", true)));
         addRenderableWidget(new HoloButton(wheel.sideX(), wheel.y + 10, 88, 22, "Redo", VIOLET,
                 ignored -> send("astra redo", true)));
-        addRenderableWidget(new HoloButton(wheel.sideX(), wheel.y + 51, 88, 22, "Done", CYAN,
+        materialButton = addRenderableWidget(new HoloButton(wheel.sideX(), wheel.y + 38, 88, 22,
+                "Fill: " + material.label(), GREEN, ignored -> send("astra material " + material.next().id(), false)));
+        addRenderableWidget(new HoloButton(wheel.sideX(), wheel.y + 66, 88, 22, "Done", CYAN,
                 ignored -> closeMenu()));
         updateSelection(current, operation);
+        updateMaterial(testCommands == null && ChiselInspector.holdingChisel(minecraft)
+                ? ChiselMaterial.read(minecraft.player.getMainHandItem()) : material);
     }
 
     @Override public void tick() {
@@ -81,6 +88,7 @@ public final class ChiselModeScreen extends Screen {
         if (!ChiselInspector.holdingChisel(minecraft)) { onClose(); return; }
         var tool = minecraft.player.getMainHandItem();
         updateSelection(ChiselMode.read(tool), ChiselOperation.read(tool));
+        updateMaterial(ChiselMaterial.read(tool));
     }
 
     void updateSelection(ChiselMode mode, ChiselOperation op) {
@@ -88,6 +96,10 @@ public final class ChiselModeScreen extends Screen {
         operation = op;
         modeButtons.forEach((value, button) -> { button.active = value != current; button.selected = value == current; });
         operationButtons.forEach((value, button) -> { button.active = value != operation; button.selected = value == operation; });
+    }
+    void updateMaterial(ChiselMaterial value) {
+        material = value;
+        materialButton.setMessage(Component.literal("Fill: " + (value == ChiselMaterial.OAK ? "Oak" : value.label())));
     }
     ChiselWheelLayout wheel() { return wheel; }
 
@@ -108,7 +120,7 @@ public final class ChiselModeScreen extends Screen {
         graphics.centeredText(font,history[1],side,wheel.y-32,0xFF9BB3CB);
         super.extractRenderState(graphics,mouseX,mouseY,delta);
         int hovered = wheel.sectorAt(mouseX,mouseY);
-        String footer = hovered >= 0 ? description(ChiselMode.values()[hovered]) : "Click to choose / Tab to navigate / Esc to close";
+        String footer = materialButton.isMouseOver(mouseX,mouseY) ? "Fill empty cells: Original / Stone / Oak planks" : hovered >= 0 ? description(ChiselMode.values()[hovered]) : "Click to choose / Tab to navigate / Esc to close";
         graphics.centeredText(font,footer,width/2,height-14,0xFFBDD2E9);
     }
 
@@ -125,7 +137,7 @@ public final class ChiselModeScreen extends Screen {
             return new String[] {"Target gone", "Edit a host"};
         if (host.revision() != tag.getLongOr("astra_last_revision",-1))
             return new String[] {"Target changed", "Edit a host"};
-        return new String[] {HostMaterial.of(host.getBlockState()).label(), "U " + host.undoDepth() + " / R " + host.redoDepth()};
+        return new String[] {host.materialLabel(), "U " + host.undoDepth() + " / R " + host.redoDepth()};
     }
 
     static String shortName(ChiselMode mode) {

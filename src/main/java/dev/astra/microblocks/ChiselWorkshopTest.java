@@ -131,10 +131,13 @@ public final class ChiselWorkshopTest {
             var host = (TestHostBlockEntity) level.getBlockEntity(pos);
             host.removeCell(8,15,8);
             ChiselOperation.ADD.store(tool);
+            var fill = HostMaterial.of(block.defaultBlockState()) == HostMaterial.STONE ? ChiselMaterial.OAK : ChiselMaterial.STONE;
+            fill.store(tool);
             var hit = new BlockHitResult(new Vec3(9+8.5/16,100+15.0/16,9+8.5/16),Direction.UP,pos,false);
             var context = new UseOnContext(player,InteractionHand.MAIN_HAND,hit);
             AstraMicroblocks.ASTRA_CHISEL.useOn(context);
             check(host.isFull(),"actual item did not place cell");
+            check(host.materialAt(8,15,8)==fill.resolve(host.getBlockState()),"actual item ignored fill material");
             check(ChiselUndo.undoLast(player,tool) && !host.isFull(),"command add undo");
             check(ChiselUndo.redoLast(player,tool) && host.isFull(),"command add redo");
             long revision = host.revision();
@@ -146,6 +149,7 @@ public final class ChiselWorkshopTest {
             var ops = level.registryAccess().createSerializationContext(NbtOps.INSTANCE);
             var saved = ItemStack.CODEC.parse(ops,ItemStack.CODEC.encodeStart(ops,tool).getOrThrow()).getOrThrow();
             check(ChiselOperation.read(saved)==ChiselOperation.ADD,"operation persistence");
+            check(ChiselMaterial.read(saved)==fill,"fill material persistence");
             ChiselOperation.CUT.store(tool);
             for (int i=0;i<3;i++) host.editCells(single(i),ChiselOperation.CUT);
             ChiselUndo.remember(tool,level,host);

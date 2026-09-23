@@ -3,6 +3,7 @@ package dev.astra.microblocks.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.astra.microblocks.AstraMicroblocks;
 import dev.astra.microblocks.MicroblockRenderMesh;
+import dev.astra.microblocks.MicroblockGrid;
 import dev.astra.microblocks.TestHostBlockEntity;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.Mesh;
@@ -46,6 +47,7 @@ public final class ClientRenderTest {
         ChiselWheelTest.run(client);
         verifyInspector(client);
         verifyMaterials(client);
+        verifyMixedMaterials(client);
         var host = new TestHostBlockEntity(BlockPos.ZERO, AstraMicroblocks.TEST_HOST.defaultBlockState());
         var registered = client.getBlockEntityRenderDispatcher()
                 .<TestHostBlockEntity, TestHostRenderState>getRenderer(host);
@@ -122,6 +124,41 @@ public final class ClientRenderTest {
         var sprite = client.getAtlasManager().get(new SpriteId(
                 TextureAtlas.LOCATION_BLOCKS, Identifier.withDefaultNamespace("block/stone")));
         require(TestHostBlockEntityRenderer.buildMesh(empty, sprite).size() == 0, "empty grid rendered surfaces");
+    }
+
+    private static void verifyMixedMaterials(Minecraft client) {
+        for (var block : new dev.astra.microblocks.TestHostBlock[]{AstraMicroblocks.TEST_HOST,AstraMicroblocks.OAK_HOST}) {
+            var host=new TestHostBlockEntity(BlockPos.ZERO,block.defaultBlockState());
+            var renderer=(TestHostBlockEntityRenderer)client.getBlockEntityRenderDispatcher()
+                    .<TestHostBlockEntity,TestHostRenderState>getRenderer(host);
+            var state=renderer.createRenderState();
+            var other=dev.astra.microblocks.HostMaterial.of(host.getBlockState())==dev.astra.microblocks.HostMaterial.STONE
+                    ?dev.astra.microblocks.HostMaterial.OAK_PLANKS:dev.astra.microblocks.HostMaterial.STONE;
+            for(var mode:dev.astra.microblocks.ChiselMode.values()) {
+                var mask=mode.selection(new dev.astra.microblocks.MicroblockHitResolver.Cell(7,15,8),net.minecraft.core.Direction.UP);
+                host.editCells(mask,dev.astra.microblocks.ChiselOperation.CUT);
+                host.editCells(mask,dev.astra.microblocks.ChiselOperation.ADD,other);
+                renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
+                require(state.mesh.size()==1536,"internal material boundaries rendered faces");
+                verifyMesh(client,host,state.mesh);
+                var mixed=state.mesh;
+                renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
+                require(state.mesh==mixed,"mixed mesh cache miss");
+                host.undoEdit(); renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
+                require(state.mesh!=mixed,"mixed undo cache stale"); verifyMesh(client,host,state.mesh);
+                host.redoEdit(); renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
+                verifyMesh(client,host,state.mesh);
+            }
+            // Alternating materials at every cell stresses all texture transitions and cavity walls.
+            host.editCells(host.gridCopy(),dev.astra.microblocks.ChiselOperation.CUT);
+            for(int y=0;y<16;y++) for(int z=0;z<16;z++) for(int x=0;x<16;x++) {
+                var mask=MicroblockGrid.fromLongArray(new long[64]); mask.add(x,y,z);
+                if((x+y+z)%3!=0) host.editCells(mask,dev.astra.microblocks.ChiselOperation.ADD,
+                        (x+y+z)%2==0?dev.astra.microblocks.HostMaterial.STONE:dev.astra.microblocks.HostMaterial.OAK_PLANKS);
+            }
+            renderer.extractRenderState(host,state,0,Vec3.ZERO,null); verifyMesh(client,host,state.mesh);
+        }
+        System.out.println("ASTRA_TEST: MIXED_CLIENT_PASS");
     }
 
     private static void verifyMaterials(Minecraft client) {
@@ -223,7 +260,7 @@ public final class ClientRenderTest {
         for (int[] size : new int[][] {{320,240},{640,360}}) {
             var screen = new ChiselModeScreen(dev.astra.microblocks.ChiselMode.PLANE,operation);
             screen.init(size[0],size[1]);
-            require(screen.children().size()==13, "menu missing mode or close button");
+            require(screen.children().size()==14, "menu missing mode or close button");
             int selected = 0;
             for (var child : screen.children()) {
                 var widget = (net.minecraft.client.gui.components.AbstractWidget) child;
@@ -249,7 +286,7 @@ public final class ClientRenderTest {
                                 || widget.getMessage().getString().equals(nextOp.label()), "menu stale server selection");
                     }
                 }
-                require(inactive == 2 && screen.children().size() == 13, "menu duplicated or lost controls on selection");
+                require(inactive == 2 && screen.children().size() == 14, "menu duplicated or lost controls on selection");
             }
         }
         System.out.println("ASTRA_TEST: CHISEL_INSPECTOR_CLIENT_PASS");
@@ -293,12 +330,12 @@ public final class ClientRenderTest {
 
     private static void verifyMesh(Minecraft client, TestHostBlockEntity host, Mesh mesh) {
         var faces = MicroblockRenderMesh.build(host.gridCopy());
-        var texture = dev.astra.microblocks.HostMaterial.of(host.getBlockState()).texture();
-        var sprite = client.getAtlasManager().get(new SpriteId(TextureAtlas.LOCATION_BLOCKS, texture));
-        require(sprite.contents().name().equals(texture), "material texture missing: " + texture);
         int[] index = {0};
         mesh.forEach(quad -> {
             var face = faces.get(index[0]++);
+            var texture = host.materialAt(face.x(),face.y(),face.z()).texture();
+            var sprite = client.getAtlasManager().get(new SpriteId(TextureAtlas.LOCATION_BLOCKS, texture));
+            require(sprite.contents().name().equals(texture), "material texture missing: " + texture);
             require(quad.lightFace() == face.direction(), "quad normal changed");
             require(quad.cullFace() == null, "cavity quad incorrectly culled");
             float minU = Float.POSITIVE_INFINITY, maxU = Float.NEGATIVE_INFINITY;

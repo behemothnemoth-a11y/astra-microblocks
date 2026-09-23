@@ -2,6 +2,26 @@
 
 Minecraft 26.2 / Fabric prototype for editing a persistent 16×16×16 block with the Astra Chisel.
 
+## Mixed-cell workshop test package (0.1.9)
+
+**Stone and oak now share a single sculptable block.** Cut a cavity, open G, choose
+Add, and click **Fill** to cycle **Original > Stone > Oak > Original**. Close the menu
+and fill the cavity. All eight brushes support either material. Add only fills empty
+cells; cut first to replace existing material. Fill is saved independently on each chisel.
+
+Original means the original registered host material, not the face clicked. Old chisels
+default to Original to preserve repair behavior. The HUD and LAST EDIT panel identify
+mixed hosts as Stone + Oak; Add's HUD also shows the Fill selection.
+
+Commands while holding the chisel: `/astra material original`, `/astra material stone`,
+`/astra material oak`. Undo/redo restores materials and shape together. History remains
+32 edits per loaded host, with one undo across reload. Old saves migrate automatically.
+
+See [the large 0.1.9 testing plan](TESTING-0.1.9.md) and
+[reference research notes](docs/MIXED-MATERIALS.md). All previous tests remain enabled.
+This remains a two-material creative prototype; block-level sounds, hardness and drops
+come from the original host. Add stays inside existing hosts.
+
 ## Holographic wheel test package (0.1.8)
 
 Press **G** with the chisel in your main hand to open the new translucent cyan/violet

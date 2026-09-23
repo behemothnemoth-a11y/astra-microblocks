@@ -21,16 +21,15 @@ public final class TestHostBlockEntity extends BlockEntity {
 
     private static final int GRID_WORDS = 64;
 
-    private MicroblockGrid grid =
-            new MicroblockGrid();
+    private MicroblockVolume grid;
 
     /*
      * Persisted last-edit snapshot; the older session history remains bounded and transient.
      */
-    private MicroblockGrid undoGrid;
+    private MicroblockVolume undoGrid;
     public static final int HISTORY_LIMIT = 32;
-    private final java.util.ArrayDeque<MicroblockGrid> olderUndo = new java.util.ArrayDeque<>();
-    private final java.util.ArrayDeque<MicroblockGrid> redoHistory = new java.util.ArrayDeque<>();
+    private final java.util.ArrayDeque<MicroblockVolume> olderUndo = new java.util.ArrayDeque<>();
+    private final java.util.ArrayDeque<MicroblockVolume> redoHistory = new java.util.ArrayDeque<>();
     private int syncedUndo = -1, syncedRedo = -1;
 
     public int undoDepth() {
@@ -43,10 +42,14 @@ public final class TestHostBlockEntity extends BlockEntity {
 
     /** Player edits keep bounded session history; legacy data-layer helpers retain their contract. */
     public int editCells(MicroblockGrid selection, ChiselOperation operation) {
-        MicroblockGrid edited = grid.copy();
+        return editCells(selection, operation, HostMaterial.of(getBlockState()));
+    }
+
+    public int editCells(MicroblockGrid selection, ChiselOperation operation, HostMaterial material) {
+        MicroblockVolume edited = grid.copy();
         int changed = 0;
         for (int y=0;y<16;y++) for (int z=0;z<16;z++) for (int x=0;x<16;x++)
-            if (selection.isOccupied(x,y,z) && edited.setOccupied(x,y,z,operation == ChiselOperation.ADD)) changed++;
+            if (selection.isOccupied(x,y,z) && (operation == ChiselOperation.ADD ? edited.add(x,y,z,material) : edited.remove(x,y,z))) changed++;
         if (changed == 0) return 0;
         if (!canRestore(edited)) return -1;
         pushUndo();
@@ -72,7 +75,7 @@ public final class TestHostBlockEntity extends BlockEntity {
     }
 
     public boolean redoEdit() {
-        MicroblockGrid next = redoHistory.peekLast();
+        MicroblockVolume next = redoHistory.peekLast();
         if (next == null || !canRestore(next)) return false;
         pushUndo();
         grid = redoHistory.removeLast();
@@ -80,9 +83,9 @@ public final class TestHostBlockEntity extends BlockEntity {
         return true;
     }
 
-    private boolean canRestore(MicroblockGrid next) {
+    private boolean canRestore(MicroblockVolume next) {
         if (level == null || level.isClientSide()) return true;
-        MicroblockGrid added = next.copy();
+        MicroblockGrid added = next.occupancyCopy();
         for (int y=0;y<16;y++) for (int z=0;z<16;z++) for (int x=0;x<16;x++)
             if (grid.isOccupied(x,y,z)) added.remove(x,y,z);
         if (added.isEmpty()) return true;
@@ -107,10 +110,21 @@ public final class TestHostBlockEntity extends BlockEntity {
                 pos,
                 state
         );
+        grid = new MicroblockVolume(HostMaterial.of(state));
     }
 
     public MicroblockGrid gridCopy() {
-        return grid.copy();
+        return grid.occupancyCopy();
+    }
+
+    public MicroblockVolume volumeCopy() { return grid.copy(); }
+    public HostMaterial materialAt(int x,int y,int z) { return grid.materialAt(x,y,z); }
+    public int materialCount(HostMaterial material) { return grid.count(material); }
+    public String materialLabel() {
+        if (grid.isEmpty()) return "Empty";
+        if (grid.count(HostMaterial.STONE) == 0) return "Oak planks";
+        if (grid.count(HostMaterial.OAK_PLANKS) == 0) return "Stone";
+        return "Stone + Oak";
     }
 
     public boolean isOccupied(
@@ -164,7 +178,7 @@ public final class TestHostBlockEntity extends BlockEntity {
 
     /** Commit a whole tool stroke with one undo snapshot and one published revision. */
     public int removeCells(MicroblockGrid selection) {
-        MicroblockGrid edited = grid.copy();
+        MicroblockVolume edited = grid.copy();
         int removed = 0;
         for (int y = 0; y < MicroblockGrid.SIZE; y++)
             for (int z = 0; z < MicroblockGrid.SIZE; z++)
@@ -222,7 +236,7 @@ public final class TestHostBlockEntity extends BlockEntity {
             return;
         }
 
-        MicroblockGrid previous =
+        MicroblockVolume previous =
                 undoGrid;
 
         undoGrid = null;
@@ -319,7 +333,7 @@ public final class TestHostBlockEntity extends BlockEntity {
         writeGrid(
                 output,
                 "grid_",
-                grid
+                grid.occupancyCopy()
         );
 
         output.putLong(
@@ -339,11 +353,23 @@ public final class TestHostBlockEntity extends BlockEntity {
             writeGrid(
                     output,
                     "undo_",
-                    undoGrid
+                    undoGrid.occupancyCopy()
             );
         }
 
+        output.putBoolean("materials_v2", true);
+        writeGrid(output, "oak_", grid.oakCopy());
+        if (hasUndo) writeGrid(output, "undo_oak_", undoGrid.oakCopy());
         super.saveAdditional(output);
+    }
+
+    private MicroblockVolume readVolume(ValueInput input, String gridPrefix, String oakPrefix) {
+        var occupancy = readGrid(input, gridPrefix);
+        var original = HostMaterial.of(getBlockState());
+        if (!input.getBooleanOr("materials_v2", false)) return MicroblockVolume.legacy(occupancy, original);
+        long[] oak = new long[GRID_WORDS];
+        for (int i=0;i<GRID_WORDS;i++) oak[i] = input.getLongOr(oakPrefix+i, 0L);
+        return new MicroblockVolume(occupancy, MicroblockGrid.fromLongArray(oak), original);
     }
 
     @Override
@@ -364,16 +390,12 @@ public final class TestHostBlockEntity extends BlockEntity {
 
         if (gridFormat) {
             grid =
-                    readGrid(
-                            input,
-                            "grid_"
-                    );
+                    readVolume(input, "grid_", "oak_");
         } else {
             /*
              * Migration from the original boolean prototype.
              */
-            grid =
-                    new MicroblockGrid();
+            grid = new MicroblockVolume(HostMaterial.of(getBlockState()));
 
             boolean oldCarved =
                     input.getBooleanOr(
@@ -404,10 +426,7 @@ public final class TestHostBlockEntity extends BlockEntity {
 
         if (gridFormat && hasUndo) {
             undoGrid =
-                    readGrid(
-                            input,
-                            "undo_"
-                    );
+                    readVolume(input, "undo_", "undo_oak_");
         } else {
             /*
              * Old-format undo cannot restore a complete grid,

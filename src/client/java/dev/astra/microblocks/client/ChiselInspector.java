@@ -62,7 +62,8 @@ public final class ChiselInspector {
             Target target = target(client);
             var operation = ChiselOperation.read(client.player.getMainHandItem());
             String first = operation.label() + ": " + mode.label()
-                    + (target == null ? "" : " | " + dev.astra.microblocks.HostMaterial.of(cachedHost.getBlockState()).label());
+                    + (operation == ChiselOperation.ADD ? " [" + dev.astra.microblocks.ChiselMaterial.read(client.player.getMainHandItem()).label() + "]" : "")
+                    + (target == null ? "" : " | " + cachedHost.materialLabel());
             String second = target == null ? "Aim at a sculptable block" :
                     "Cells: " + target.preview().occupied() + "/4096  |  " +
                     (client.player.isShiftKeyDown() ? "Undo last edit" : (target.outside() ? "Outside host" : "Next " + operation.id() + ": " + target.preview().affected()));
