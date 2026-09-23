@@ -52,7 +52,7 @@ final class ChiselWheelTest {
             }
             check(wheel.sectorAt(wheel.x,wheel.y)==-1,"wheel center selects brush");
             int before=commands.size();
-            screen.mouseClicked(click(wheel.x,wheel.y,0),false);
+            screen.mouseClicked(click(wheel.x,wheel.y-9,0),false);
             screen.mouseClicked(click(size[0]-1,size[1]-1,0),false);
             check(commands.size()==before,"empty menu space sends a command");
             for (var op : ChiselOperation.values()) {
@@ -62,11 +62,13 @@ final class ChiselWheelTest {
                 screen.updateSelection(ChiselMode.PLANE,op);
             }
             for (var fill : dev.astra.microblocks.ChiselMaterial.values()) {
-                screen.updateMaterial(fill);
-                String label="Fill: "+(fill==dev.astra.microblocks.ChiselMaterial.OAK?"Oak":fill.label());
+                screen.updateMaterial(fill.next());
+                String label=fill==dev.astra.microblocks.ChiselMaterial.OAK?"Oak":fill.label();
                 press(screen,label);
-                check(commands.getLast().equals("astra material "+fill.next().id()) && closed[0]==0,"fill material command");
-                check(widget(screen,label)!=null,"fill changed before server acknowledgement");
+                check(commands.getLast().equals("astra material "+fill.id()) && closed[0]==0,"direct material command");
+                check(widget(screen,label).active,"material changed before server acknowledgement");
+                screen.updateMaterial(fill);
+                check(!widget(screen,label).active,"material acknowledgement missing");
             }
             // Tab cycles through native focusable widgets; Enter activates the focused history button.
             var visited=new HashSet<String>();
@@ -74,7 +76,7 @@ final class ChiselWheelTest {
                 screen.keyPressed(new KeyEvent(GLFW.GLFW_KEY_TAB,0,0));
                 if (screen.getFocused() instanceof AbstractWidget widget) visited.add(widget.getMessage().getString());
             }
-            check(visited.size()==12 && visited.contains("Undo") && visited.contains("Redo") && visited.contains("Done"),
+            check(visited.size()==15 && visited.contains("Undo") && visited.contains("Redo") && visited.contains("Done"),
                     "keyboard cannot reach all active controls: "+visited);
             var redo=widget(screen,"Redo");
             screen.setFocused(redo);
@@ -82,10 +84,12 @@ final class ChiselWheelTest {
             check(commands.getLast().equals("astra redo") && closed[0]==1,"keyboard redo action");
             press(screen,"Undo");
             check(commands.getLast().equals("astra undo") && closed[0]==2,"undo action");
+            press(screen,"Pick material");
+            check(commands.getLast().equals("astra sample") && closed[0]==3,"menu material sampling");
             before=commands.size(); press(screen,"Done");
-            check(closed[0]==3 && commands.size()==before,"Done edited the world");
+            check(closed[0]==4 && commands.size()==before,"Done edited the world");
             screen.init(size[0],size[1]);
-            check(screen.children().size()==14,"resize duplicated controls");
+            check(screen.children().size()==18,"resize duplicated controls");
             check(!screen.isPauseScreen(),"menu pauses singleplayer");
         }
         System.out.println("ASTRA_TEST: CHISEL_WHEEL_PASS");

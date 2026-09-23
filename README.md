@@ -2,6 +2,35 @@
 
 Minecraft 26.2 / Fabric prototype for editing a persistent 16×16×16 block with the Astra Chisel.
 
+## History and material workflow package (0.1.10)
+
+The full available undo/redo timeline now survives saving, chunk unloading and restart.
+The combined timeline remains bounded to 32 edits per host. If you save halfway through
+undoing, both stacks and their exact stone/oak cells resume from that point. Older saves
+retain whatever history they contain; discarded pre-0.1.10 history cannot be reconstructed.
+
+**New controls, while holding the chisel with no screen open:** Z undoes the last edited
+host, Y redoes it, and P samples the aimed cell's material. Rebind them under Controls >
+Astra Microblocks if another mod uses those keys. G opens the wheel; crouch-right-click
+still undoes the aimed-at host. History shortcuts retain range and changed-target checks.
+
+**Replace** changes the material of occupied cells without changing their shape. Cut is
+amber, Add is green, Replace is violet. The preview includes only cells that would change.
+The inspector shows Stone / Oak / Empty counts. G now has direct Stone, Oak and Original
+buttons, plus Pick material. Original means the host's original registered type.
+Sampling checks the current server ray against the exact microcell, including cavity
+walls; it does not change the operation, brush, sculpture or remembered history target.
+
+Commands: `/astra operation replace`, `/astra sample`, `/astra material stone`,
+`/astra material oak`, `/astra material original`, `/astra undo`, `/astra redo`.
+
+See [the six-build test course and recovery matrix](TESTING-0.1.10.md).
+Automated checks retain all earlier behavior while upgrading the reload assertions to
+full history. New tests cover 40-edit mixed timelines over three boots, redo-only saves,
+legacy/malformed history, every replacement brush/face/material, real item replacement,
+sampling all six faces and cavity floors, obstruction, material-only render invalidation,
+preview coverage, shortcut guards and menu selection/navigation.
+
 ## Mixed-cell workshop test package (0.1.9)
 
 **Stone and oak now share a single sculptable block.** Cut a cavity, open G, choose

@@ -24,7 +24,7 @@ public final class TestHostBlockEntity extends BlockEntity {
     private MicroblockVolume grid;
 
     /*
-     * Persisted last-edit snapshot; the older session history remains bounded and transient.
+     * Latest undo snapshot; both bounded history stacks are persisted.
      */
     private MicroblockVolume undoGrid;
     public static final int HISTORY_LIMIT = 32;
@@ -49,7 +49,11 @@ public final class TestHostBlockEntity extends BlockEntity {
         MicroblockVolume edited = grid.copy();
         int changed = 0;
         for (int y=0;y<16;y++) for (int z=0;z<16;z++) for (int x=0;x<16;x++)
-            if (selection.isOccupied(x,y,z) && (operation == ChiselOperation.ADD ? edited.add(x,y,z,material) : edited.remove(x,y,z))) changed++;
+            if (selection.isOccupied(x,y,z) && switch (operation) {
+                case CUT -> edited.remove(x,y,z);
+                case ADD -> edited.add(x,y,z,material);
+                case REPLACE -> edited.replace(x,y,z,material);
+            }) changed++;
         if (changed == 0) return 0;
         if (!canRestore(edited)) return -1;
         pushUndo();
@@ -360,6 +364,7 @@ public final class TestHostBlockEntity extends BlockEntity {
         output.putBoolean("materials_v2", true);
         writeGrid(output, "oak_", grid.oakCopy());
         if (hasUndo) writeGrid(output, "undo_oak_", undoGrid.oakCopy());
+        output.store("history_v3", com.mojang.serialization.Codec.LONG_STREAM, java.util.Arrays.stream(packHistory()));
         super.saveAdditional(output);
     }
 
@@ -434,15 +439,56 @@ public final class TestHostBlockEntity extends BlockEntity {
              */
             undoGrid = null;
         }
+        if (gridFormat) loadHistory(input);
+    }
+
+    /** Compact bounded snapshots, oldest undo first and next redo last. */
+    private long[] packHistory() {
+        int undo = undoGrid == null ? 0 : olderUndo.size()+1, redo = redoHistory.size();
+        long[] data = new long[2+(undo+redo)*128];
+        data[0]=undo; data[1]=redo;
+        int offset=2;
+        for (var snapshot : olderUndo) offset=packSnapshot(data,offset,snapshot);
+        if (undoGrid != null) offset=packSnapshot(data,offset,undoGrid);
+        for (var snapshot : redoHistory) offset=packSnapshot(data,offset,snapshot);
+        return data;
+    }
+    private static int packSnapshot(long[] data,int offset,MicroblockVolume snapshot) {
+        System.arraycopy(snapshot.occupancyCopy().toLongArray(),0,data,offset,64);
+        System.arraycopy(snapshot.oakCopy().toLongArray(),0,data,offset+64,64);
+        return offset+128;
+    }
+    private void loadHistory(ValueInput input) {
+        var packed=input.read("history_v3",com.mojang.serialization.Codec.LONG_STREAM);
+        if (packed.isEmpty()) return; // Old versions retain their one saved undo.
+        long[] data=packed.get().limit(2+HISTORY_LIMIT*128+1).toArray();
+        if (data.length<2 || data[0]<0 || data[1]<0 || data[0]>HISTORY_LIMIT || data[1]>HISTORY_LIMIT
+                || data[0]+data[1]>HISTORY_LIMIT || data.length!=2+(data[0]+data[1])*128) return;
+        olderUndo.clear(); redoHistory.clear(); undoGrid=null;
+        int undo=(int)data[0], total=undo+(int)data[1];
+        for (int i=0;i<total;i++) {
+            int offset=2+i*128;
+            var snapshot=new MicroblockVolume(
+                    MicroblockGrid.fromLongArray(java.util.Arrays.copyOfRange(data,offset,offset+64)),
+                    MicroblockGrid.fromLongArray(java.util.Arrays.copyOfRange(data,offset+64,offset+128)),
+                    HostMaterial.of(getBlockState()));
+            if (i<undo-1) olderUndo.addLast(snapshot);
+            else if (i==undo-1) undoGrid=snapshot;
+            else redoHistory.addLast(snapshot);
+        }
     }
 
     @Override
-    public CompoundTag getUpdateTag(
-            HolderLookup.Provider registryLookup
-    ) {
-        CompoundTag tag = saveWithoutMetadata(registryLookup);
-        tag.putInt("session_undo_count", undoDepth());
-        tag.putInt("session_redo_count", redoDepth());
+    public CompoundTag getUpdateTag(HolderLookup.Provider registryLookup) {
+        // Clients need current geometry/materials and counts, never the full history payload.
+        CompoundTag tag = new CompoundTag();
+        tag.putBoolean("grid_format_v1",true);
+        tag.putBoolean("materials_v2",true);
+        tag.putLong("revision",revision);
+        long[] cells=grid.occupancyCopy().toLongArray(), oak=grid.oakCopy().toLongArray();
+        for (int i=0;i<GRID_WORDS;i++) { tag.putLong("grid_"+i,cells[i]); tag.putLong("oak_"+i,oak[i]); }
+        tag.putInt("session_undo_count",undoDepth());
+        tag.putInt("session_redo_count",redoDepth());
         return tag;
     }
 

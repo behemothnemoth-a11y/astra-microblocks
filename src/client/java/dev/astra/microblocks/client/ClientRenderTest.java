@@ -48,6 +48,7 @@ public final class ClientRenderTest {
         verifyInspector(client);
         verifyMaterials(client);
         verifyMixedMaterials(client);
+        verifyWorkflow(client);
         var host = new TestHostBlockEntity(BlockPos.ZERO, AstraMicroblocks.TEST_HOST.defaultBlockState());
         var registered = client.getBlockEntityRenderDispatcher()
                 .<TestHostBlockEntity, TestHostRenderState>getRenderer(host);
@@ -124,6 +125,46 @@ public final class ClientRenderTest {
         var sprite = client.getAtlasManager().get(new SpriteId(
                 TextureAtlas.LOCATION_BLOCKS, Identifier.withDefaultNamespace("block/stone")));
         require(TestHostBlockEntityRenderer.buildMesh(empty, sprite).size() == 0, "empty grid rendered surfaces");
+    }
+
+    private static void verifyWorkflow(Minecraft client) {
+        var commands=new java.util.ArrayList<String>();
+        for(var action:java.util.List.of("undo","redo","sample")) {
+            require(ChiselInspector.dispatchShortcut(action,true,true,false,commands::add),"shortcut not dispatched");
+            require(commands.getLast().equals("astra "+action),"wrong shortcut command");
+            int count=commands.size();
+            require(!ChiselInspector.dispatchShortcut(action,false,true,false,commands::add),"shortcut outside world");
+            require(!ChiselInspector.dispatchShortcut(action,true,false,false,commands::add),"shortcut without chisel");
+            require(!ChiselInspector.dispatchShortcut(action,true,true,true,commands::add),"shortcut inside menu/chat/inventory");
+            require(!ChiselInspector.dispatchShortcut(action,true,true,false,null),"shortcut without connection");
+            require(commands.size()==count,"rejected shortcut sent command");
+        }
+        var host=new TestHostBlockEntity(BlockPos.ZERO,AstraMicroblocks.TEST_HOST.defaultBlockState());
+        var renderer=(TestHostBlockEntityRenderer)client.getBlockEntityRenderDispatcher().<TestHostBlockEntity,TestHostRenderState>getRenderer(host);
+        var state=renderer.createRenderState(); renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
+        var before=state.mesh;
+        var cell=new dev.astra.microblocks.MicroblockHitResolver.Cell(8,15,8);
+        var mask=dev.astra.microblocks.ChiselMode.CUBE_2.selection(cell,net.minecraft.core.Direction.UP);
+        host.editCells(mask,dev.astra.microblocks.ChiselOperation.REPLACE,dev.astra.microblocks.HostMaterial.OAK_PLANKS);
+        renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
+        require(state.mesh!=before && state.mesh.size()==before.size(),"material-only edit stale cache or changed topology");
+        verifyMesh(client,host,state.mesh);
+        require(ChiselInspector.materialCounts(host).equals("Stone: 4088 | Oak: 8 | Empty: 0"),"inspector material counts");
+        var noChange=dev.astra.microblocks.ChiselPreview.create(host.volumeCopy(),dev.astra.microblocks.ChiselMode.CUBE_2,
+                cell,net.minecraft.core.Direction.UP,dev.astra.microblocks.ChiselOperation.REPLACE,dev.astra.microblocks.HostMaterial.OAK_PLANKS);
+        require(noChange.affected()==0 && noChange.boxes().isEmpty(),"same material preview visible");
+        var preview=dev.astra.microblocks.ChiselPreview.create(host.volumeCopy(),dev.astra.microblocks.ChiselMode.CUBE_2,
+                cell,net.minecraft.core.Direction.UP,dev.astra.microblocks.ChiselOperation.REPLACE,dev.astra.microblocks.HostMaterial.STONE);
+        var collector=new net.minecraft.gizmos.SimpleGizmoCollector();
+        try(var ignored=net.minecraft.gizmos.Gizmos.withCollector(collector)) { ChiselInspector.emit(preview,BlockPos.ZERO,dev.astra.microblocks.ChiselOperation.REPLACE); }
+        var gizmos=collector.drainGizmos(); require(!gizmos.isEmpty(),"replace preview missing");
+        for(var instance:gizmos) require(((net.minecraft.gizmos.CuboidGizmo)instance.gizmo()).style().stroke()==0xFFAA89FF,"replace preview not violet");
+        host.undoEdit(); renderer.extractRenderState(host,state,0,Vec3.ZERO,null); verifyMesh(client,host,state.mesh);
+        require(ChiselInspector.materialCounts(host).equals("Stone: 4096 | Oak: 0 | Empty: 0"),"counts stale after undo");
+        host.redoEdit(); renderer.extractRenderState(host,state,0,Vec3.ZERO,null); verifyMesh(client,host,state.mesh);
+        host.editCells(mask,dev.astra.microblocks.ChiselOperation.CUT);
+        require(ChiselInspector.materialCounts(host).equals("Stone: 4088 | Oak: 0 | Empty: 8"),"empty count wrong");
+        System.out.println("ASTRA_TEST: WORKFLOW_CLIENT_PASS");
     }
 
     private static void verifyMixedMaterials(Minecraft client) {
@@ -260,15 +301,15 @@ public final class ClientRenderTest {
         for (int[] size : new int[][] {{320,240},{640,360}}) {
             var screen = new ChiselModeScreen(dev.astra.microblocks.ChiselMode.PLANE,operation);
             screen.init(size[0],size[1]);
-            require(screen.children().size()==14, "menu missing mode or close button");
+            require(screen.children().size()==18, "menu missing mode or close button");
             int selected = 0;
             for (var child : screen.children()) {
                 var widget = (net.minecraft.client.gui.components.AbstractWidget) child;
                 require(widget.getX()>=0 && widget.getY()>=0 && widget.getRight()<=size[0]
                         && widget.getBottom()<=size[1], "menu widget outside screen");
-                if (!widget.active) { selected++; require((widget.getMessage().getString().equals("Plane (clicked face)") || widget.getMessage().getString().equals(operation.label())), "wrong selected mode"); }
+                if (!widget.active) { selected++; require((widget.getMessage().getString().equals("Plane (clicked face)") || widget.getMessage().getString().equals(operation.label()) || widget.getMessage().getString().equals("Original")), "wrong selected mode"); }
             }
-            require(selected==2 && !screen.isPauseScreen(), "menu selection/pause state");
+            require(selected==3 && !screen.isPauseScreen(), "menu selection/pause state");
             var state = new net.minecraft.client.renderer.state.gui.GuiRenderState();
             var graphics = new net.minecraft.client.gui.GuiGraphicsExtractor(client,state,0,0);
             screen.extractRenderState(graphics,0,0,0);
@@ -283,10 +324,10 @@ public final class ClientRenderTest {
                     if (!widget.active) {
                         inactive++;
                         require(widget.getMessage().getString().equals(nextMode.label())
-                                || widget.getMessage().getString().equals(nextOp.label()), "menu stale server selection");
+                                || widget.getMessage().getString().equals(nextOp.label()) || widget.getMessage().getString().equals("Original"), "menu stale server selection");
                     }
                 }
-                require(inactive == 2 && screen.children().size() == 14, "menu duplicated or lost controls on selection");
+                require(inactive == 3 && screen.children().size() == 18, "menu duplicated or lost controls on selection");
             }
         }
         System.out.println("ASTRA_TEST: CHISEL_INSPECTOR_CLIENT_PASS");

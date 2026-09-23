@@ -15,7 +15,7 @@ final class ChiselWheelLayout {
     ChiselWheelLayout(int width, int height) {
         radius = Math.min(116, Math.min((height - 64) / 2, (width - 116) / 2));
         if (radius < 64) throw new IllegalArgumentException("Chisel wheel requires at least 320x240 GUI space");
-        inner = Math.max(35, radius * 2 / 5);
+        inner = Math.max(38, radius * 2 / 5);
         x = (width - 100) / 2;
         y = height / 2 + 6;
         var lists = new ArrayList<List<Span>>();

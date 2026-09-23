@@ -55,7 +55,7 @@ public final class MaterialWorkshopTest {
         for (var pos : new BlockPos[] {STONE_POS, OAK_POS}) {
             verify(level, pos, repaired());
             var host = host(level, pos);
-            check(host.undoDepth() == 1 && host.redoDepth() == 0, "material saved history contract");
+            check(host.undoDepth() == 2 && host.redoDepth() == 1, "material saved history contract");
             check(host.undoEdit(), "material persisted undo");
             var unfilled = new MicroblockGrid();
             apply(unfilled, cavity(), false);

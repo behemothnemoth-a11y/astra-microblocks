@@ -98,9 +98,9 @@ public final class ChiselWorkshopTest {
         var beforeReload = host.gridCopy();
         var loaded = (TestHostBlockEntity) BlockEntity.loadStatic(BlockPos.ZERO,host.getBlockState(),
                 host.saveWithFullMetadata(level.registryAccess()),level.registryAccess());
-        check(loaded != null && loaded.gridCopy().equals(beforeReload) && loaded.undoDepth()==1
-                && loaded.redoDepth()==0,"saved one-step fallback");
-        check(loaded.undoEdit() && !loaded.canUndo(),"loaded undo fallback");
+        check(loaded != null && loaded.gridCopy().equals(beforeReload) && loaded.undoDepth()==32
+                && loaded.redoDepth()==0,"saved bounded history");
+        check(loaded.undoEdit() && loaded.undoDepth()==31,"loaded full history");
         check(loaded.redoEdit() && loaded.gridCopy().equals(beforeReload),"redo after saved undo");
         // Interleave cuts and additions, including no-ops, against exact captured states.
         host = host(); snapshots.clear(); snapshots.add(host.gridCopy());

@@ -40,6 +40,12 @@ public final class MicroblockVolume {
         oak.setOccupied(x,y,z,material == HostMaterial.OAK_PLANKS);
         return true;
     }
+    public boolean replace(int x,int y,int z,HostMaterial material) {
+        java.util.Objects.requireNonNull(material);
+        if (!isOccupied(x,y,z) || materialAt(x,y,z) == material) return false;
+        oak.setOccupied(x,y,z,material == HostMaterial.OAK_PLANKS);
+        return true;
+    }
     public int occupiedCount() { return occupied.occupiedCount(); }
     public int count(HostMaterial material) {
         return material == HostMaterial.OAK_PLANKS ? oak.occupiedCount() : occupiedCount()-oak.occupiedCount();

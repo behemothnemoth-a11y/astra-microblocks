@@ -129,6 +129,7 @@ ServerLevel level =
         ChiselWorkshopTest.run(level);
         MaterialWorkshopTest.phaseZero(level);
         MixedMaterialTest.phaseZero(level);
+        WorkflowTest.phaseZero(level);
         require(
                 level.setBlock(
                         TEST_POS,
@@ -372,6 +373,7 @@ ServerLevel level =
 
         MaterialWorkshopTest.phaseOne(level);
         MixedMaterialTest.phaseOne(level);
+        WorkflowTest.phaseOne(level);
         writePhase(2);
 
         System.out.println(
@@ -437,6 +439,7 @@ ServerLevel level =
 
         MaterialWorkshopTest.phaseTwo(level);
         MixedMaterialTest.phaseTwo(level);
+        WorkflowTest.phaseTwo(level);
         writePhase(3);
 
         System.out.println(

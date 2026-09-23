@@ -7,7 +7,7 @@ import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.phys.BlockHitResult;
 
 public enum ChiselOperation {
-    CUT("cut", "Cut"), ADD("add", "Add");
+    CUT("cut", "Cut"), ADD("add", "Add"), REPLACE("replace", "Replace");
 
     private final String id;
     private final String label;
@@ -16,8 +16,9 @@ public enum ChiselOperation {
     public String label() { return label; }
 
     public static ChiselOperation read(ItemStack tool) {
-        return tool.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag()
-                .getStringOr("astra_operation", "cut").equals("add") ? ADD : CUT;
+        String id=tool.getOrDefault(DataComponents.CUSTOM_DATA,CustomData.EMPTY).copyTag().getStringOr("astra_operation","cut");
+        for (var operation : values()) if (operation.id.equals(id)) return operation;
+        return CUT;
     }
 
     public void store(ItemStack tool) {
@@ -25,7 +26,7 @@ public enum ChiselOperation {
     }
 
     public Optional<MicroblockHitResolver.Cell> target(BlockHitResult hit) {
-        return this == CUT ? Optional.of(MicroblockHitResolver.resolveForRemoval(hit))
+        return this != ADD ? Optional.of(MicroblockHitResolver.resolveForRemoval(hit))
                 : MicroblockHitResolver.resolveForAddition(hit);
     }
 }

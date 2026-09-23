@@ -24,7 +24,7 @@ final class ChiselMenuCapture {
         client.getWindow().setWindowed(stage==0?640:1280,stage==0?480:720);
         client.resizeGui();
         client.gui.setScreen(new ChiselModeScreen(stage==0?ChiselMode.SINGLE:ChiselMode.CUBE_4,
-                stage==0?ChiselOperation.CUT:ChiselOperation.ADD,ignored -> {},() -> {}));
+                stage==0?ChiselOperation.REPLACE:ChiselOperation.ADD,ignored -> {},() -> {}));
     }
     static void tick(Minecraft client) {
         if (!active) return;

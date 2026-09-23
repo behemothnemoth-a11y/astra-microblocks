@@ -3,5 +3,8 @@
   "block.astra_microblocks.test_host": "Astra Sculptable Stone",
   "key.astra_microblocks.modes": "Open chisel mode menu",
   "key.category.astra_microblocks.chisel": "Astra Microblocks",
-  "block.astra_microblocks.oak_host": "Astra Sculptable Oak Planks"
+  "block.astra_microblocks.oak_host": "Astra Sculptable Oak Planks",
+  "key.astra_microblocks.undo": "Undo last chisel edit",
+  "key.astra_microblocks.redo": "Redo last chisel edit",
+  "key.astra_microblocks.sample": "Pick chisel material from aimed cell"
 }

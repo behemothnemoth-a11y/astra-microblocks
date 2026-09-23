@@ -25,7 +25,7 @@ public final class ChiselModeScreen extends Screen {
     private ChiselOperation operation;
     private ChiselWheelLayout wheel;
     private ChiselMaterial material = ChiselMaterial.ORIGINAL;
-    private HoloButton materialButton;
+    private final Map<ChiselMaterial,HoloButton> materialButtons = new EnumMap<>(ChiselMaterial.class);
     private final Map<ChiselMode, WheelButton> modeButtons = new EnumMap<>(ChiselMode.class);
     private final Map<ChiselOperation, HoloButton> operationButtons = new EnumMap<>(ChiselOperation.class);
     private final Consumer<String> testCommands;
@@ -55,6 +55,7 @@ public final class ChiselModeScreen extends Screen {
     @Override protected void init() {
         modeButtons.clear();
         operationButtons.clear();
+        materialButtons.clear();
         wheel = new ChiselWheelLayout(width, height);
         // Clockwise tab order follows the visible wheel.
         for (var mode : ChiselMode.values()) {
@@ -63,19 +64,27 @@ public final class ChiselModeScreen extends Screen {
             addRenderableWidget(button);
         }
         for (var op : ChiselOperation.values()) {
-            var button = new HoloButton(wheel.x - 27, wheel.y - 21 + op.ordinal() * 24,
-                    54, 20, op.label(), op == ChiselOperation.CUT ? AMBER : GREEN,
+            var button = new HoloButton(wheel.x - 25, wheel.y - 26 + op.ordinal() * 18,
+                    50, 16, op.label(), operationColor(op),
                     ignored -> send("astra operation " + op.id(), false));
             operationButtons.put(op, button);
             addRenderableWidget(button);
         }
-        addRenderableWidget(new HoloButton(wheel.sideX(), wheel.y - 18, 88, 22, "Undo", CYAN,
+        addRenderableWidget(new HoloButton(wheel.sideX(), wheel.y - 39, 42, 20, "Undo", CYAN,
                 ignored -> send("astra undo", true)));
-        addRenderableWidget(new HoloButton(wheel.sideX(), wheel.y + 10, 88, 22, "Redo", VIOLET,
+        addRenderableWidget(new HoloButton(wheel.sideX()+46, wheel.y - 39, 42, 20, "Redo", VIOLET,
                 ignored -> send("astra redo", true)));
-        materialButton = addRenderableWidget(new HoloButton(wheel.sideX(), wheel.y + 38, 88, 22,
-                "Fill: " + material.label(), GREEN, ignored -> send("astra material " + material.next().id(), false)));
-        addRenderableWidget(new HoloButton(wheel.sideX(), wheel.y + 66, 88, 22, "Done", CYAN,
+        for (var fill : ChiselMaterial.values()) {
+            boolean original=fill==ChiselMaterial.ORIGINAL;
+            var button=new HoloButton(wheel.sideX()+(fill==ChiselMaterial.OAK?46:0),
+                    wheel.y+(original?25:1),original?88:42,20,
+                    fill==ChiselMaterial.OAK?"Oak":fill.label(),GREEN,
+                    ignored -> send("astra material "+fill.id(),false));
+            materialButtons.put(fill,button); addRenderableWidget(button);
+        }
+        addRenderableWidget(new HoloButton(wheel.sideX(),wheel.y+49,88,18,"Pick material",VIOLET,
+                ignored -> send("astra sample",true)));
+        addRenderableWidget(new HoloButton(wheel.sideX(),wheel.y+73,88,18,"Done",CYAN,
                 ignored -> closeMenu()));
         updateSelection(current, operation);
         updateMaterial(testCommands == null && ChiselInspector.holdingChisel(minecraft)
@@ -99,7 +108,7 @@ public final class ChiselModeScreen extends Screen {
     }
     void updateMaterial(ChiselMaterial value) {
         material = value;
-        materialButton.setMessage(Component.literal("Fill: " + (value == ChiselMaterial.OAK ? "Oak" : value.label())));
+        materialButtons.forEach((fill,button) -> { button.active=fill!=material; button.selected=fill==material; });
     }
     ChiselWheelLayout wheel() { return wheel; }
 
@@ -108,19 +117,20 @@ public final class ChiselModeScreen extends Screen {
         graphics.fill(0, 0, width, height, 0x55050B18);
         graphics.centeredText(font, title, width / 2, 9, CYAN);
         graphics.centeredText(font, operation.label() + " / " + current.label(), width / 2, 22,
-                operation == ChiselOperation.CUT ? AMBER : GREEN);
+                operationColor(operation));
         for (int row = -wheel.inner; row <= wheel.inner; row++) {
             int half = (int) Math.sqrt(wheel.inner * wheel.inner - row * row);
             graphics.fill(wheel.x-half,wheel.y+row,wheel.x+half+1,wheel.y+row+1,0xDA091526);
         }
         int side = wheel.sideX() + 44;
-        graphics.centeredText(font,"LAST EDIT",side,wheel.y-57,VIOLET);
+        graphics.centeredText(font,"LAST EDIT",side,wheel.y-78,VIOLET);
         String[] history = historyReadout(minecraft);
-        graphics.centeredText(font,history[0],side,wheel.y-44,0xFFE1EDF5);
-        graphics.centeredText(font,history[1],side,wheel.y-32,0xFF9BB3CB);
+        graphics.centeredText(font,history[0],side,wheel.y-65,0xFFE1EDF5);
+        graphics.centeredText(font,history[1],side,wheel.y-54,0xFF9BB3CB);
+        graphics.centeredText(font,"MATERIAL",side,wheel.y-13,GREEN);
         super.extractRenderState(graphics,mouseX,mouseY,delta);
         int hovered = wheel.sectorAt(mouseX,mouseY);
-        String footer = materialButton.isMouseOver(mouseX,mouseY) ? "Fill empty cells: Original / Stone / Oak planks" : hovered >= 0 ? description(ChiselMode.values()[hovered]) : "Click to choose / Tab to navigate / Esc to close";
+        String footer = materialButtons.get(ChiselMaterial.ORIGINAL).isMouseOver(mouseX,mouseY) ? "Original uses the host type: stone or oak" : hovered >= 0 ? description(ChiselMode.values()[hovered]) : "Click to choose / Tab to navigate / Esc to close";
         graphics.centeredText(font,footer,width/2,height-14,0xFFBDD2E9);
     }
 
@@ -138,6 +148,10 @@ public final class ChiselModeScreen extends Screen {
         if (host.revision() != tag.getLongOr("astra_last_revision",-1))
             return new String[] {"Target changed", "Edit a host"};
         return new String[] {host.materialLabel(), "U " + host.undoDepth() + " / R " + host.redoDepth()};
+    }
+
+    static int operationColor(ChiselOperation operation) {
+        return switch(operation) { case CUT -> AMBER; case ADD -> GREEN; case REPLACE -> VIOLET; };
     }
 
     static String shortName(ChiselMode mode) {
@@ -196,7 +210,7 @@ public final class ChiselModeScreen extends Screen {
         }
         @Override protected void extractContents(GuiGraphicsExtractor graphics,int mouseX,int mouseY,float delta) {
             boolean hovered = isMouseOver(mouseX,mouseY) || isFocused();
-            int color = selected ? (operation == ChiselOperation.CUT ? AMBER : GREEN) : hovered ? VIOLET : CYAN;
+            int color = selected ? (operationColor(operation)) : hovered ? VIOLET : CYAN;
             for (var span : wheel.spans(mode.ordinal())) {
                 graphics.fill(span.x(),span.y(),span.x()+span.width(),span.y()+1,
                         span.edge() ? color : selected ? 0xE02A3651 : hovered ? 0xDD252943 : 0xBD0A192B);

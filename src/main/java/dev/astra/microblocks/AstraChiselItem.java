@@ -73,6 +73,6 @@ public final class AstraChiselItem extends Item {
         lines.accept(Component.literal("Right-click host: " + ChiselOperation.read(stack).label()));
         lines.accept(Component.literal("Crouch + right-click air: next mode"));
         lines.accept(Component.literal("Crouch + right-click host: undo last edit"));
-        lines.accept(Component.literal("Menu: Cut/Add, Undo/Redo. Commands: /astra undo or /astra redo"));
+        lines.accept(Component.literal("Menu: Cut/Add/Replace, materials, Undo/Redo. /astra sample picks a material."));
     }
 }

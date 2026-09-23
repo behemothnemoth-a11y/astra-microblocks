@@ -75,7 +75,7 @@ public final class MixedMaterialTest {
         var host=new TestHostBlockEntity(BlockPos.ZERO,block.defaultBlockState());
         host.editCells(inlay(),ChiselOperation.CUT);
         var tag=host.saveWithFullMetadata(level.registryAccess());
-        tag.remove("materials_v2");
+        tag.remove("materials_v2"); tag.remove("history_v3");
         for(int i=0;i<64;i++) { tag.remove("oak_"+i); tag.remove("undo_oak_"+i); }
         var migrated=load(level,host,tag);
         check(migrated.occupiedCount()==4032 && migrated.materialCount(original)==4032,"old save material migration");
@@ -112,7 +112,7 @@ public final class MixedMaterialTest {
         for(var pos:new BlockPos[]{STONE,OAK}) {
             var host=host(level,pos); var mixed=expected(host);
             check(host.volumeCopy().equals(mixed),"first restart mixed cells");
-            check(host.undoDepth()==1 && host.redoDepth()==0 && host.undoEdit(),"mixed restart undo contract");
+            check(host.undoDepth()==2 && host.redoDepth()==0 && host.undoEdit(),"mixed restart undo contract");
             check(host.occupiedCount()==4032 && host.materialCount(opposite(HostMaterial.of(host.getBlockState())))==0,
                     "mixed restart undo material");
             check(host.redoEdit() && host.volumeCopy().equals(mixed),"mixed restart redo material");
