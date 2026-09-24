@@ -59,8 +59,7 @@ public final class TestHostBlockEntityRenderer
         CachedMesh cached = cache.get(host);
         if (cached == null || cached.revision() != host.revision() || cached.stone() != stone || cached.oak() != oak) {
             var volume = host.volumeCopy();
-            cached = new CachedMesh(host.revision(), stone, oak, buildMesh(volume.occupancyCopy(),
-                    face -> volume.materialAt(face.x(),face.y(),face.z()) == HostMaterial.OAK_PLANKS ? oak : stone));
+            cached = new CachedMesh(host.revision(), stone, oak, buildVolumeMesh(volume,sprites));
             cache.put(host, cached);
         }
         state.mesh = cached.mesh();
@@ -72,6 +71,16 @@ public final class TestHostBlockEntityRenderer
 
     static Mesh buildMesh(MicroblockGrid grid,
             java.util.function.Function<MicroblockRenderMesh.Face,TextureAtlasSprite> texture) {
+        return buildMesh(grid,texture,null);
+    }
+    static Mesh buildVolumeMesh(dev.astra.microblocks.MicroblockVolume volume,SpriteGetter sprites) {
+        return buildMesh(volume.occupancyCopy(),face -> sprites.get(new SpriteId(TextureAtlas.LOCATION_BLOCKS,
+                volume.materialAt(face.x(),face.y(),face.z()).texture(face.direction()))),
+                (face,corner) -> volume.materialAt(face.x(),face.y(),face.z()).uv(face.direction(),face.vertex(corner)));
+    }
+    private static Mesh buildMesh(MicroblockGrid grid,
+            java.util.function.Function<MicroblockRenderMesh.Face,TextureAtlasSprite> texture,
+            java.util.function.BiFunction<MicroblockRenderMesh.Face,Integer,float[]> uv) {
         MutableMesh mesh = Renderer.get().mutableMesh();
         QuadEmitter emitter = mesh.emitter();
 
@@ -88,7 +97,8 @@ public final class TestHostBlockEntityRenderer
             }
             // Block-space UVs keep the material continuous across cells instead of repeating
             // a whole 16x16 texture on every individual microcell.
-            emitter.materialBake(new Material.Baked(texture.apply(face),false), MutableQuadView.BAKE_LOCK_UV);
+            if(uv!=null) for(int corner=0;corner<4;corner++) {var point=uv.apply(face,corner);emitter.uv(corner,point[0],point[1]);}
+            emitter.materialBake(new Material.Baked(texture.apply(face),false), uv==null?MutableQuadView.BAKE_LOCK_UV:MutableQuadView.BAKE_NORMALIZED);
             emitter.color(-1, -1, -1, -1);
             emitter.emit();
         }

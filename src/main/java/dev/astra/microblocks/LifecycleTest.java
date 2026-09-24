@@ -131,6 +131,7 @@ ServerLevel level =
         MixedMaterialTest.phaseZero(level);
         WorkflowTest.phaseZero(level);
         SculptureTest.phaseZero(level);
+        PaletteTest.phaseZero(level);
         require(
                 level.setBlock(
                         TEST_POS,
@@ -376,6 +377,7 @@ ServerLevel level =
         MixedMaterialTest.phaseOne(level);
         WorkflowTest.phaseOne(level);
         SculptureTest.phaseOne(level);
+        PaletteTest.phaseOne(level);
         writePhase(2);
 
         System.out.println(
@@ -443,6 +445,7 @@ ServerLevel level =
         MixedMaterialTest.phaseTwo(level);
         WorkflowTest.phaseTwo(level);
         SculptureTest.phaseTwo(level);
+        PaletteTest.phaseTwo(level);
         writePhase(3);
 
         System.out.println(

@@ -42,7 +42,7 @@ public final class TestHostBlockEntity extends BlockEntity {
 
     /** Player edits keep bounded session history; legacy data-layer helpers retain their contract. */
     public int editCells(MicroblockGrid selection, ChiselOperation operation) {
-        return editCells(selection, operation, HostMaterial.of(getBlockState()));
+        return editCells(selection, operation, grid.original());
     }
 
     public int editCells(MicroblockGrid selection, ChiselOperation operation, HostMaterial material) {
@@ -65,7 +65,7 @@ public final class TestHostBlockEntity extends BlockEntity {
 
     /** Whole-design edit follows the same no-op, obstruction and history rules as brushes. */
     public int applyDesign(MicroblockVolume source) {
-        var next=new MicroblockVolume(source.occupancyCopy(),source.oakCopy(),HostMaterial.of(getBlockState()));
+        var next=source.withOriginal(grid.original());
         if(next.equals(grid)) return 0;
         if(!canRestore(next)) return -1;
         pushUndo(); redoHistory.clear(); grid=next; finishEdit(); return 1;
@@ -74,7 +74,7 @@ public final class TestHostBlockEntity extends BlockEntity {
     public void initializeDesign(MicroblockVolume source) {
         if(revision!=0 || undoGrid!=null || !olderUndo.isEmpty() || !redoHistory.isEmpty())
             throw new IllegalStateException("Cannot initialize an edited host");
-        grid=new MicroblockVolume(source.occupancyCopy(),source.oakCopy(),HostMaterial.of(getBlockState()));
+        grid=source.copy();
         finishEdit();
     }
 
@@ -137,10 +137,12 @@ public final class TestHostBlockEntity extends BlockEntity {
     }
 
     public MicroblockVolume volumeCopy() { return grid.copy(); }
+    public HostMaterial originalMaterial() {return grid.original();}
     public HostMaterial materialAt(int x,int y,int z) { return grid.materialAt(x,y,z); }
     public int materialCount(HostMaterial material) { return grid.count(material); }
     public String materialLabel() {
         if (grid.isEmpty()) return "Empty";
+        if(!grid.legacyOnly()) return grid.materials().size()==1?grid.materials().keySet().iterator().next().label():grid.materials().size()+" materials";
         if (grid.count(HostMaterial.STONE) == 0) return "Oak planks";
         if (grid.count(HostMaterial.OAK_PLANKS) == 0) return "Stone";
         return "Stone + Oak";
@@ -380,6 +382,11 @@ public final class TestHostBlockEntity extends BlockEntity {
         writeGrid(output, "oak_", grid.oakCopy());
         if (hasUndo) writeGrid(output, "undo_oak_", undoGrid.oakCopy());
         output.store("history_v3", com.mojang.serialization.Codec.LONG_STREAM, java.util.Arrays.stream(packHistory()));
+        if(!grid.legacyOnly() || (undoGrid!=null && !undoGrid.legacyOnly())
+                || olderUndo.stream().anyMatch(v -> !v.legacyOnly()) || redoHistory.stream().anyMatch(v -> !v.legacyOnly())) {
+            output.store("volume_v4",CompoundTag.CODEC,VolumePalette.write(grid));
+            output.store("history_v4",CompoundTag.CODEC,paletteHistory());
+        }
         super.saveAdditional(output);
     }
 
@@ -455,6 +462,8 @@ public final class TestHostBlockEntity extends BlockEntity {
             undoGrid = null;
         }
         if (gridFormat) loadHistory(input);
+        input.read("volume_v4",CompoundTag.CODEC).flatMap(VolumePalette::read).ifPresent(v -> grid=v);
+        input.read("history_v4",CompoundTag.CODEC).ifPresent(this::loadPaletteHistory);
     }
 
     /** Compact bounded snapshots, oldest undo first and next redo last. */
@@ -493,6 +502,29 @@ public final class TestHostBlockEntity extends BlockEntity {
         }
     }
 
+    private CompoundTag paletteHistory() {
+        var tag=new CompoundTag();var undo=new java.util.ArrayList<>(olderUndo);
+        if(undoGrid!=null) undo.add(undoGrid);
+        tag.putInt("undo",undo.size());tag.putInt("redo",redoHistory.size());
+        int i=0;for(var v:undo) tag.put("snapshot_"+i++,VolumePalette.write(v));
+        for(var v:redoHistory) tag.put("snapshot_"+i++,VolumePalette.write(v));
+        return tag;
+    }
+    private void loadPaletteHistory(CompoundTag tag) {
+        int undo=tag.getIntOr("undo",-1),redo=tag.getIntOr("redo",-1);
+        // Never partially restore a corrupt timeline or substitute stone for an unknown material.
+        olderUndo.clear();redoHistory.clear();undoGrid=null;
+        if(undo<0 || redo<0 || undo>HISTORY_LIMIT || redo>HISTORY_LIMIT || undo+redo>HISTORY_LIMIT) return;
+        var snapshots=new java.util.ArrayList<MicroblockVolume>();
+        for(int i=0;i<undo+redo;i++) {
+            var value=tag.getCompound("snapshot_"+i).flatMap(VolumePalette::read);
+            if(value.isEmpty()) return;snapshots.add(value.get());
+        }
+        for(int i=0;i<snapshots.size();i++) {
+            if(i<undo-1) olderUndo.addLast(snapshots.get(i));else if(i==undo-1) undoGrid=snapshots.get(i);else redoHistory.addLast(snapshots.get(i));
+        }
+    }
+
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registryLookup) {
         // Clients need current geometry/materials and counts, never the full history payload.
@@ -502,6 +534,7 @@ public final class TestHostBlockEntity extends BlockEntity {
         tag.putLong("revision",revision);
         long[] cells=grid.occupancyCopy().toLongArray(), oak=grid.oakCopy().toLongArray();
         for (int i=0;i<GRID_WORDS;i++) { tag.putLong("grid_"+i,cells[i]); tag.putLong("oak_"+i,oak[i]); }
+        if(!grid.legacyOnly()) tag.put("volume_v4",VolumePalette.write(grid));
         tag.putInt("session_undo_count",undoDepth());
         tag.putInt("session_redo_count",redoDepth());
         return tag;

@@ -2,6 +2,37 @@
 
 Minecraft 26.2 / Fabric prototype for editing a persistent 16×16×16 block with the Astra Chisel.
 
+## Expanded material library (0.3.0)
+
+**164 vanilla blocks / 250 supported block states** can now be sculpted and mixed inside
+one Astra block. Place a supported vanilla block and right-click it with the chisel:
+Astra converts it and applies your brush while preserving its material and log axis.
+The first cut can be undone back to the full material-filled host. The chisel preview
+also works before conversion. Unsupported blocks remain unchanged.
+
+Press **B** with the chisel for the searchable **Material Library**, or choose Materials
+in G. Each entry has a preview and full-name tooltip. Search names, families or log axes;
+Recent recalls the last eight sampled/library materials. Select a material and use Add
+or Replace as before. **P** now samples either a supported vanilla block or an exact
+sculpted cell. Original restores the sculpture's original material, including its axis.
+
+The library includes masonry, deepslate/tuff variants, sandstone, quartz, blackstone,
+planks, overworld logs/wood and stripped variants, bamboo building blocks, concrete,
+terracotta and wool colors, plus selected other opaque decorative blocks. Logs and
+pillars preserve their directional textures through conversion, copying and rotation.
+
+Existing stone/oak sculptures, saved items, clipboards and history remain readable.
+Expanded-material cells and both history stacks persist through reload; saved sculpture
+items, copy/stamp and transformations support the full palette. Commands also accept
+`/astra material minecraft:stone_bricks` and
+`/astra material minecraft:oak_log[axis=x]`.
+
+See [the supported-block list and implementation notes](docs/MATERIAL-LIBRARY.md).
+This remains a single-block creative building prototype: transparent, animated, tinted,
+fluid and functional blocks are outside this release. Host hardness, mining requirements
+and sounds remain those of Astra's registered host; conversion preserves appearance and
+cell material, not every vanilla block behavior. No survival material costs are added.
+
 ## Reusable sculptures (0.2.0)
 
 Carved stone/oak blocks can now become reusable **sculpture items**, carrying all 4096

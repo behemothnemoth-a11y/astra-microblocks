@@ -76,7 +76,7 @@ final class ChiselWheelTest {
                 screen.keyPressed(new KeyEvent(GLFW.GLFW_KEY_TAB,0,0));
                 if (screen.getFocused() instanceof AbstractWidget widget) visited.add(widget.getMessage().getString());
             }
-            check(visited.size()==15 && visited.contains("Undo") && visited.contains("Redo") && visited.contains("Done"),
+            check(visited.size()==16 && visited.contains("Undo") && visited.contains("Redo") && visited.contains("Done"),
                     "keyboard cannot reach all active controls: "+visited);
             var redo=widget(screen,"Redo");
             screen.setFocused(redo);
@@ -89,7 +89,7 @@ final class ChiselWheelTest {
             before=commands.size(); press(screen,"Done");
             check(closed[0]==4 && commands.size()==before,"Done edited the world");
             screen.init(size[0],size[1]);
-            check(screen.children().size()==18,"resize duplicated controls");
+            check(screen.children().size()==19,"resize duplicated controls");
             check(!screen.isPauseScreen(),"menu pauses singleplayer");
         }
         System.out.println("ASTRA_TEST: CHISEL_WHEEL_PASS");

@@ -24,9 +24,11 @@ import org.lwjgl.glfw.GLFW;
 
 /** Extracts a cached, read-only preview on the client, before rendering consumes it. */
 public final class ChiselInspector {
-    private static KeyMapping menuKey, undoKey, redoKey, sampleKey, designKey;
+    private static KeyMapping menuKey, undoKey, redoKey, sampleKey, designKey, paletteKey;
     private static dev.astra.microblocks.HostMaterial cachedMaterial;
-    private static TestHostBlockEntity cachedHost;
+    private static TestHostBlockEntity cachedHost,conversionHost;
+    private static BlockPos conversionPos;
+    private static dev.astra.microblocks.HostMaterial conversionMaterial;
     private static long cachedRevision;
     private static MicroblockHitResolver.Cell cachedCell;
     private static Direction cachedFace;
@@ -43,7 +45,9 @@ public final class ChiselInspector {
         redoKey=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.astra_microblocks.redo",GLFW.GLFW_KEY_Y,category));
         sampleKey=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.astra_microblocks.sample",GLFW.GLFW_KEY_P,category));
         designKey=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.astra_microblocks.design",GLFW.GLFW_KEY_H,category));
+        paletteKey=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.astra_microblocks.materials",GLFW.GLFW_KEY_B,category));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while(paletteKey.consumeClick()) if(client.gui.screen()==null && holdingChisel(client)) client.gui.setScreen(new MaterialScreen());
             while(designKey.consumeClick()) if(client.gui.screen()==null && holdingChisel(client)) client.gui.setScreen(new DesignScreen());
             while (menuKey.consumeClick()) {
                 if (client.gui.screen() == null && holdingChisel(client))
@@ -69,13 +73,13 @@ public final class ChiselInspector {
             Target target = target(client);
             var operation = ChiselOperation.read(client.player.getMainHandItem());
             String first = operation.label() + ": " + mode.label()
-                    + (operation != ChiselOperation.CUT ? " [" + dev.astra.microblocks.ChiselMaterial.read(client.player.getMainHandItem()).label() + "]" : "")
+                    + (operation != ChiselOperation.CUT ? " [" + dev.astra.microblocks.ChiselMaterial.label(client.player.getMainHandItem()) + "]" : "")
                     + (target == null ? "" : " | " + cachedHost.materialLabel());
             String second = target == null ? "Aim at a sculptable block" :
                     "Cells: " + target.preview().occupied() + "/4096  |  " +
                     (client.player.isShiftKeyDown() ? "Undo last edit" : (target.outside() ? "Outside host" : "Next " + operation.id() + ": " + target.preview().affected()));
             String third = menuKey.getTranslatedKeyMessage().getString() + ": brushes  |  "
-                    + designKey.getTranslatedKeyMessage().getString() + ": designs";
+                    + designKey.getTranslatedKeyMessage().getString() + ": designs | "+paletteKey.getTranslatedKeyMessage().getString()+": materials";
             int width = Math.max(client.font.width(first), Math.max(client.font.width(second), client.font.width(third)));
             String fourth = target == null ? (operation == ChiselOperation.ADD ? "Add fills cavities within this host" : operation == ChiselOperation.REPLACE ? "Replace changes material, preserving shape" : "Cut removes cells within one host") : "Undo: " + cachedHost.undoDepth() + "  |  Redo: " + cachedHost.redoDepth();
             String fifth=target == null ? undoKey.getTranslatedKeyMessage().getString()+": undo / "
@@ -118,15 +122,26 @@ public final class ChiselInspector {
 
     private static Target target(Minecraft client) {
         if (!visible(client) || !(client.hitResult instanceof BlockHitResult hit)
-                || hit.getType() != HitResult.Type.BLOCK
-                || !(client.level.getBlockEntity(hit.getBlockPos()) instanceof TestHostBlockEntity host)) {
+                || hit.getType() != HitResult.Type.BLOCK) {
             clearCache();
             return null;
+        }
+        TestHostBlockEntity host;
+        if(client.level.getBlockEntity(hit.getBlockPos()) instanceof TestHostBlockEntity existing) host=existing;
+        else {
+            var supported=dev.astra.microblocks.HostMaterial.supported(client.level.getBlockState(hit.getBlockPos())).orElse(null);
+            if(supported==null) {clearCache();return null;}
+            if(conversionHost==null || !hit.getBlockPos().equals(conversionPos) || supported!=conversionMaterial) {
+                conversionPos=hit.getBlockPos();conversionMaterial=supported;
+                conversionHost=new TestHostBlockEntity(conversionPos,AstraMicroblocks.TEST_HOST.defaultBlockState());
+                conversionHost.initializeDesign(new dev.astra.microblocks.MicroblockVolume(supported));
+            }
+            host=conversionHost;
         }
         var operation = ChiselOperation.read(client.player.getMainHandItem());
         var cell = operation.target(hit).orElse(null);
         var mode = ChiselMode.read(client.player.getMainHandItem());
-        var material=dev.astra.microblocks.ChiselMaterial.read(client.player.getMainHandItem()).resolve(host.getBlockState());
+        var material=dev.astra.microblocks.ChiselMaterial.resolve(client.player.getMainHandItem(),host);
         if (cachedHost != host || cachedRevision != host.revision() || !java.util.Objects.equals(cell,cachedCell)
                 || cachedFace != hit.getDirection() || cachedMode != mode || cachedOperation != operation || cachedMaterial != material) {
             cachedPreview = ChiselPreview.create(host.volumeCopy(), mode, cell, hit.getDirection(), operation,material);
@@ -159,5 +174,5 @@ public final class ChiselInspector {
         }
     }
 
-    private static void clearCache() { cachedHost = null; cachedPreview = null; }
+    private static void clearCache() { cachedHost = null; cachedPreview = null; conversionHost=null; conversionPos=null; conversionMaterial=null; }
 }

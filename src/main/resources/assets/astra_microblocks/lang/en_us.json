@@ -7,5 +7,6 @@
   "key.astra_microblocks.undo": "Undo last chisel edit",
   "key.astra_microblocks.redo": "Redo last chisel edit",
   "key.astra_microblocks.sample": "Pick chisel material from aimed cell",
-  "key.astra_microblocks.design": "Open sculpture design workbench"
+  "key.astra_microblocks.design": "Open sculpture design workbench",
+  "key.astra_microblocks.materials": "Open material library"
 }

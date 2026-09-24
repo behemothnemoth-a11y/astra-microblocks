@@ -86,9 +86,10 @@ public final class ChiselModeScreen extends Screen {
                 ignored -> send("astra sample",true)));
         addRenderableWidget(new HoloButton(wheel.sideX(),wheel.y+73,88,18,"Done",CYAN,
                 ignored -> closeMenu()));
+        addRenderableWidget(new HoloButton(width-80,7,74,18,"Materials",GREEN,ignored -> minecraft.gui.setScreen(new MaterialScreen())));
         updateSelection(current, operation);
         updateMaterial(testCommands == null && ChiselInspector.holdingChisel(minecraft)
-                ? ChiselMaterial.read(minecraft.player.getMainHandItem()) : material);
+                ? (ChiselMaterial.custom(minecraft.player.getMainHandItem())?null:ChiselMaterial.read(minecraft.player.getMainHandItem())) : material);
     }
 
     @Override public void tick() {
@@ -97,7 +98,7 @@ public final class ChiselModeScreen extends Screen {
         if (!ChiselInspector.holdingChisel(minecraft)) { onClose(); return; }
         var tool = minecraft.player.getMainHandItem();
         updateSelection(ChiselMode.read(tool), ChiselOperation.read(tool));
-        updateMaterial(ChiselMaterial.read(tool));
+        updateMaterial(ChiselMaterial.custom(tool)?null:ChiselMaterial.read(tool));
     }
 
     void updateSelection(ChiselMode mode, ChiselOperation op) {
@@ -130,7 +131,7 @@ public final class ChiselModeScreen extends Screen {
         graphics.centeredText(font,"MATERIAL",side,wheel.y-13,GREEN);
         super.extractRenderState(graphics,mouseX,mouseY,delta);
         int hovered = wheel.sectorAt(mouseX,mouseY);
-        String footer = materialButtons.get(ChiselMaterial.ORIGINAL).isMouseOver(mouseX,mouseY) ? "Original uses the host type: stone or oak" : hovered >= 0 ? description(ChiselMode.values()[hovered]) : "Click to choose / Tab to navigate / Esc to close";
+        String footer = materialButtons.get(ChiselMaterial.ORIGINAL).isMouseOver(mouseX,mouseY) ? "Original uses the sculpture original material" : hovered >= 0 ? description(ChiselMode.values()[hovered]) : "Click to choose / Tab to navigate / Esc to close";
         graphics.centeredText(font,footer,width/2,height-14,0xFFBDD2E9);
     }
 

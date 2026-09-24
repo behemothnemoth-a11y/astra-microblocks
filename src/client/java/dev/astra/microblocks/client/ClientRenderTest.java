@@ -50,6 +50,7 @@ public final class ClientRenderTest {
         verifyMixedMaterials(client);
         verifyWorkflow(client);
         verifySculptures(client);
+        verifyPalette(client);
         var host = new TestHostBlockEntity(BlockPos.ZERO, AstraMicroblocks.TEST_HOST.defaultBlockState());
         var registered = client.getBlockEntityRenderDispatcher()
                 .<TestHostBlockEntity, TestHostRenderState>getRenderer(host);
@@ -126,6 +127,56 @@ public final class ClientRenderTest {
         var sprite = client.getAtlasManager().get(new SpriteId(
                 TextureAtlas.LOCATION_BLOCKS, Identifier.withDefaultNamespace("block/stone")));
         require(TestHostBlockEntityRenderer.buildMesh(empty, sprite).size() == 0, "empty grid rendered surfaces");
+    }
+
+    private static void verifyPalette(Minecraft client) {
+        var sprites=(net.minecraft.client.resources.model.sprite.SpriteGetter)client.getAtlasManager()::get;
+        for(var material:dev.astra.microblocks.HostMaterial.catalog()) {
+            var volume=dev.astra.microblocks.MicroblockVolume.empty(material);volume.add(5,6,7,material);
+            var host=new TestHostBlockEntity(BlockPos.ZERO,dev.astra.microblocks.AstraMicroblocks.TEST_HOST.defaultBlockState());host.initializeDesign(volume);
+            verifyMesh(client,host,TestHostBlockEntityRenderer.buildVolumeMesh(volume,sprites));
+        }
+        var mud=dev.astra.microblocks.HostMaterial.find("mud_bricks").orElseThrow();
+        var vertex=new MicroblockRenderMesh.Vertex(3,4,5);
+        require(Math.abs(mud.uv(net.minecraft.core.Direction.NORTH,vertex)[0]-3/16f)<0.00001f
+                && Math.abs(mud.uv(net.minecraft.core.Direction.WEST,vertex)[0]-(1-5/16f))<0.00001f,"mirrored vanilla face UV ignored");
+        var mosaic=dev.astra.microblocks.PaletteTest.mosaic();
+        var host=new TestHostBlockEntity(BlockPos.ZERO,dev.astra.microblocks.AstraMicroblocks.TEST_HOST.defaultBlockState());host.initializeDesign(mosaic);
+        verifyMesh(client,host,TestHostBlockEntityRenderer.buildVolumeMesh(mosaic,sprites));
+        require(MaterialScreen.filtered("deepslate",dev.astra.microblocks.HostMaterial.catalog()).size()>5,"material search missing family");
+        require(MaterialScreen.filtered("oak log (x)",dev.astra.microblocks.HostMaterial.catalog()).stream().anyMatch(m -> m.id().equals("minecraft:oak_log[axis=x]")),"axis search missing");
+        for(var size:new int[][]{{320,240},{640,360}}) {
+            var commands=new java.util.ArrayList<String>();
+            var screen=new MaterialScreen(commands::add,java.util.List.of(dev.astra.microblocks.HostMaterial.find("bricks").orElseThrow()));
+            screen.init(size[0],size[1]);screen.query("blue concrete");
+            require(screen.children().size()==16,"material screen duplicate controls");
+            var graphics=new net.minecraft.client.gui.GuiGraphicsExtractor(client,new net.minecraft.client.renderer.state.gui.GuiRenderState(),0,0);
+            screen.extractRenderState(graphics,0,0,0);
+            for(var child:screen.children()) {
+                var widget=(net.minecraft.client.gui.components.AbstractWidget)child;
+                require(widget.getX()>=0 && widget.getY()>=0 && widget.getRight()<=size[0] && widget.getBottom()<=size[1],"material controls outside screen");
+                if(widget.visible && widget.getMessage().getString().equals("Blue concrete")) {
+                    require(screen.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(widget.getX()+10,widget.getY()+10,
+                            new net.minecraft.client.input.MouseButtonInfo(0,0)),false),"material click not handled");
+                }
+            }
+            require(commands.equals(java.util.List.of("astra material minecraft:blue_concrete")),"picker sent wrong selection");
+            screen.query("");pressMaterialButton(screen,"Recent");
+            pressMaterialButton(screen,"Bricks");require(commands.getLast().equals("astra material minecraft:bricks"),"recent material selection failed");
+            pressMaterialButton(screen,"All blocks");pressMaterialButton(screen,">");pressMaterialButton(screen,"<");
+            screen.query("no_such_material");screen.extractRenderState(graphics,0,0,0);
+            screen.init(size[0],size[1]);require(screen.children().size()==16,"material resize duplicated controls");
+            require(!screen.isPauseScreen(),"material screen pauses game");
+        }
+        System.out.println("ASTRA_TEST: PALETTE_CLIENT_PASS");
+    }
+
+    private static void pressMaterialButton(MaterialScreen screen,String label) {
+        var button=screen.children().stream().filter(c -> c instanceof net.minecraft.client.gui.components.Button b
+                && b.visible && b.active && b.getMessage().getString().equals(label))
+                .map(c -> (net.minecraft.client.gui.components.Button)c).findFirst().orElseThrow();
+        require(screen.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(button.getX()+button.getWidth()/2.0,
+                button.getY()+button.getHeight()/2.0,new net.minecraft.client.input.MouseButtonInfo(0,0)),false),"material control click failed "+label);
     }
 
     private static void verifySculptures(Minecraft client) {
@@ -347,7 +398,7 @@ public final class ClientRenderTest {
         for (int[] size : new int[][] {{320,240},{640,360}}) {
             var screen = new ChiselModeScreen(dev.astra.microblocks.ChiselMode.PLANE,operation);
             screen.init(size[0],size[1]);
-            require(screen.children().size()==18, "menu missing mode or close button");
+            require(screen.children().size()==19, "menu missing mode or close button");
             int selected = 0;
             for (var child : screen.children()) {
                 var widget = (net.minecraft.client.gui.components.AbstractWidget) child;
@@ -373,7 +424,7 @@ public final class ClientRenderTest {
                                 || widget.getMessage().getString().equals(nextOp.label()) || widget.getMessage().getString().equals("Original"), "menu stale server selection");
                     }
                 }
-                require(inactive == 3 && screen.children().size() == 18, "menu duplicated or lost controls on selection");
+                require(inactive == 3 && screen.children().size() == 19, "menu duplicated or lost controls on selection");
             }
         }
         System.out.println("ASTRA_TEST: CHISEL_INSPECTOR_CLIENT_PASS");
@@ -420,7 +471,7 @@ public final class ClientRenderTest {
         int[] index = {0};
         mesh.forEach(quad -> {
             var face = faces.get(index[0]++);
-            var texture = host.materialAt(face.x(),face.y(),face.z()).texture();
+            var texture = host.materialAt(face.x(),face.y(),face.z()).texture(face.direction());
             var sprite = client.getAtlasManager().get(new SpriteId(TextureAtlas.LOCATION_BLOCKS, texture));
             require(sprite.contents().name().equals(texture), "material texture missing: " + texture);
             require(quad.lightFace() == face.direction(), "quad normal changed");

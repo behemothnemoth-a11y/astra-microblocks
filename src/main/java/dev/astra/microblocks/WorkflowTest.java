@@ -172,7 +172,7 @@ public final class WorkflowTest {
         ChiselMaterial.ORIGINAL.store(tool);
         check(ChiselCommands.sampleMaterial(player) && ChiselMaterial.read(tool).resolve(host.getBlockState())==other,"cavity floor material sampling");
         level.setBlock(pos.above(),net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(),Block.UPDATE_ALL);
-        check(!ChiselCommands.sampleMaterial(player),"sampling through an ordinary occluding block");
+        check(ChiselCommands.sampleMaterial(player) && ChiselMaterial.read(tool)==ChiselMaterial.STONE,"sampling did not stop at the supported occluding stone block");
         level.removeBlock(pos.above(),false);
         player.setPos(36,110,4); player.setXRot(90);
         check(!ChiselCommands.sampleMaterial(player),"sampling beyond reach");

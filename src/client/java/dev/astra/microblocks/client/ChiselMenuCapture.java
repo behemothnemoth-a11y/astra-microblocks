@@ -23,8 +23,8 @@ final class ChiselMenuCapture {
         readyAt=System.nanoTime()+1_000_000_000L;
         client.getWindow().setWindowed(stage==0?640:1280,stage==0?480:720);
         client.resizeGui();
-        client.gui.setScreen(new DesignScreen(ignored -> {},
-                dev.astra.microblocks.SculptureTest.pattern(dev.astra.microblocks.HostMaterial.STONE)));
+        var screen=new MaterialScreen(ignored -> {},java.util.List.of(dev.astra.microblocks.HostMaterial.STONE));
+        client.gui.setScreen(screen);screen.query(stage==0?"log":"concrete");
     }
     static void tick(Minecraft client) {
         if (!active) return;
@@ -42,7 +42,7 @@ final class ChiselMenuCapture {
         }
         if (System.nanoTime()<readyAt) return;
         waiting=true;
-        String name=stage==0?"astra-design-small.png":"astra-design-large.png";
+        String name=stage==0?"astra-material-small.png":"astra-material-large.png";
         Screenshot.takeScreenshot(client.gameRenderer.mainRenderTarget(),image -> {
             try (image) {
                 Files.createDirectories(Path.of("screenshots"));

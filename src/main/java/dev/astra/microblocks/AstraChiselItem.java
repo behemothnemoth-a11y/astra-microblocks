@@ -32,6 +32,17 @@ public final class AstraChiselItem extends Item {
     @Override
     public InteractionResult useOn(UseOnContext context) {
         Level level = context.getLevel();
+        if (!(level.getBlockEntity(context.getClickedPos()) instanceof TestHostBlockEntity)) {
+            if(context.isSecondaryUseActive() || HostMaterial.supported(level.getBlockState(context.getClickedPos())).isEmpty()) {
+                if(!level.isClientSide() && context.getPlayer()!=null) context.getPlayer().sendOverlayMessage(Component.literal("This block is not in the supported solid-material catalog"));
+                return InteractionResult.SUCCESS;
+            }
+            if(level.isClientSide()) return InteractionResult.SUCCESS;
+            var material=HostMaterial.supported(level.getBlockState(context.getClickedPos())).orElseThrow();
+            if(context.getPlayer()==null || level.getBlockEntity(context.getClickedPos())!=null || !level.mayInteract(context.getPlayer(),context.getClickedPos())) return InteractionResult.FAIL;
+            if(!level.setBlock(context.getClickedPos(),AstraMicroblocks.TEST_HOST.defaultBlockState(),net.minecraft.world.level.block.Block.UPDATE_ALL)) return InteractionResult.FAIL;
+            ((TestHostBlockEntity)level.getBlockEntity(context.getClickedPos())).initializeDesign(new MicroblockVolume(material));
+        }
         if (!(level.getBlockEntity(context.getClickedPos()) instanceof TestHostBlockEntity host)) {
             // Consume block clicks so crouching on ordinary terrain cannot cycle the mode.
             return InteractionResult.SUCCESS;
@@ -56,7 +67,7 @@ public final class AstraChiselItem extends Item {
             return InteractionResult.SUCCESS;
         }
         int changed = host.editCells(mode.selection(target.get(), context.getClickedFace()), operation,
-                ChiselMaterial.read(context.getItemInHand()).resolve(host.getBlockState()));
+                ChiselMaterial.resolve(context.getItemInHand(),host));
         if (changed > 0) ChiselUndo.remember(context.getItemInHand(), level, host);
         if (player != null) player.sendOverlayMessage(Component.literal(changed < 0
                 ? "Placement blocked: an entity occupies the cells"
@@ -68,7 +79,7 @@ public final class AstraChiselItem extends Item {
     public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display,
                                 Consumer<Component> lines, TooltipFlag flag) {
         super.appendHoverText(stack, context, display, lines, flag);
-        lines.accept(Component.literal("Fill material: " + ChiselMaterial.read(stack).label()));
+        lines.accept(Component.literal("Fill material: " + ChiselMaterial.label(stack)));
         lines.accept(Component.literal("Mode: " + ChiselMode.read(stack).label()));
         lines.accept(Component.literal("Right-click host: " + ChiselOperation.read(stack).label()));
         lines.accept(Component.literal("Crouch + right-click air: next mode"));

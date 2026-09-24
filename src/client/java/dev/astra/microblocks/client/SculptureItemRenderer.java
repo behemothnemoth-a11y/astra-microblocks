@@ -47,8 +47,7 @@ public final class SculptureItemRenderer implements SpecialModelRenderer<Mesh> {
     @Override public Mesh extractArgument(ItemStack stack) {
         var volume=SculptureData.read(stack,SculptureData.ITEM_KEY).orElse(null);
         if(volume==null) return null;
-        return cache.computeIfAbsent(volume,key -> TestHostBlockEntityRenderer.buildMesh(key.occupancyCopy(),face ->
-                sprites.get(new SpriteId(TextureAtlas.LOCATION_BLOCKS,key.materialAt(face.x(),face.y(),face.z()).texture()))));
+        return cache.computeIfAbsent(volume,key -> TestHostBlockEntityRenderer.buildVolumeMesh(key,sprites));
     }
     @Override public void getExtents(Consumer<Vector3fc> output) {
         for(int x=0;x<=1;x++) for(int y=0;y<=1;y++) for(int z=0;z<=1;z++) output.accept(new Vector3f(x,y,z));
