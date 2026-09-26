@@ -1,21 +1,15 @@
 package dev.astra.microblocks;
 
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-import java.util.List;
 
 /**
  * Converts a 16x16x16 MicroblockGrid into Minecraft geometry.
  *
- * Production implementation:
- *
- * grid
- *   -> greedy MicroblockMesher
- *   -> merged rectangular cuboids
- *   -> Minecraft VoxelShape
+ * Production implementation populates a fixed 16-cubed Minecraft voxel lattice.
+ * It avoids repeated boolean unions and shape.optimize() on fragmented grids.
  *
  * The public geometry contract remains exact 1/16 resolution.
  */
@@ -44,28 +38,12 @@ public final class MicroblockShape {
             return Shapes.block();
         }
 
-        List<MicroblockMesher.Cuboid> cuboids =
-                MicroblockMesher.mesh(grid);
-
-        VoxelShape shape =
-                Shapes.empty();
-
-        for (
-                MicroblockMesher.Cuboid cuboid
-                : cuboids
-        ) {
-            VoxelShape box =
-                    cuboidShape(cuboid);
-
-            shape =
-                    Shapes.joinUnoptimized(
-                            shape,
-                            box,
-                            BooleanOp.OR
-                    );
-        }
-
-        return shape.optimize();
+        // Populate the fixed lattice once. Repeated boolean unions and optimize()
+        // scale poorly on disconnected/checkerboard shapes.
+        var voxels = new net.minecraft.world.phys.shapes.BitSetDiscreteVoxelShape(16,16,16);
+        for(int y=0;y<16;y++) for(int z=0;z<16;z++) for(int x=0;x<16;x++)
+            if(grid.isOccupied(x,y,z)) voxels.fill(x,y,z);
+        return new net.minecraft.world.phys.shapes.CubeVoxelShape(voxels);
     }
 
     /**

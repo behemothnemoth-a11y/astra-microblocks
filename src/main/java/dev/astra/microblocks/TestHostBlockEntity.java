@@ -132,6 +132,19 @@ public final class TestHostBlockEntity extends BlockEntity {
         grid = new MicroblockVolume(HostMaterial.of(state));
     }
 
+    private net.minecraft.world.phys.shapes.VoxelShape cachedPhysicalShape;
+    private MicroblockGrid cachedPhysicalGrid;
+
+    public net.minecraft.world.phys.shapes.VoxelShape physicalShape() {
+        // Comparing occupancy also covers same-revision NBT loads and material-only edits.
+        var occupancy=grid.occupancyCopy();
+        if(cachedPhysicalShape==null || !occupancy.equals(cachedPhysicalGrid)) {
+            cachedPhysicalShape=MicroblockShape.build(occupancy);
+            cachedPhysicalGrid=occupancy;
+        }
+        return cachedPhysicalShape;
+    }
+
     public MicroblockGrid gridCopy() {
         return grid.occupancyCopy();
     }

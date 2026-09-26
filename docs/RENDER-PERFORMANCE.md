@@ -44,3 +44,23 @@ Retest the same pasted Foundry with the Litematica hologram hidden. Compare view
 position, graphics settings, frame rate and editing responsiveness against 0.3.0.
 Then turn the hologram on and compare separately. Reload the same saved world;
 no schematic repaste or data migration is needed.
+
+## 0.3.2: physical shape construction and caching
+
+The September 26 13:53 freeze was recorded by Windows as AppHangB1. Minecraft's
+log ended without a Java exception or crash report. This identifies an application
+hang, but does not supply the blocked Java stack or prove its cause.
+
+Code inspection found an independent severe hot path: every collision/selection
+query copied occupancy, meshed cuboids, joined all of them, then optimized the
+result. A checkerboard requires 2,048 disconnected boxes. The new implementation
+fills Minecraft's BitSetDiscreteVoxelShape directly (at most 4,096 cells), wraps it
+in CubeVoxelShape and caches it on each host. Exact occupancy comparison detects
+edits, undo/redo and reloads even if a loaded revision happens to match. Material
+changes alone reuse the physical shape. Empty/full shapes retain their fast paths.
+
+The dense-shape regression reconstructs all 2,048 cells from the returned boxes,
+checks ray and collision boundaries, runs 10,000 cache-hit queries, and verifies
+invalidation after cutting and undo. World lifecycle and client render tests remain
+required. A repeat in-game test is still necessary: this removes a known expensive
+path, but absent a hang stack trace it cannot be claimed as the proven sole cause.

@@ -106,9 +106,7 @@ public final class TestHostBlock extends BaseEntityBlock {
             return Shapes.block();
         }
 
-        return MicroblockShape.build(
-                host.gridCopy()
-        );
+        return host.physicalShape();
     }
 
     @Override protected net.minecraft.world.item.ItemStack getCloneItemStack(

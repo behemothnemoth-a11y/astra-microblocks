@@ -2,6 +2,13 @@
 
 Minecraft 26.2 / Fabric prototype for editing a persistent 16×16×16 block with the Astra Chisel.
 
+## Dense collision and selection shapes (0.3.2)
+
+Physical shapes now use a fixed voxel lattice and are cached while occupancy is
+unchanged. This removes repeated cuboid unions and optimization from collision and
+selection queries, particularly expensive on disconnected microcells. Saved data,
+exact collision boundaries, carving and rendering remain compatible with 0.3.1.
+
 ## Surface rendering optimization (0.3.1)
 
 Contiguous faces with the same material now merge into larger rectangles while

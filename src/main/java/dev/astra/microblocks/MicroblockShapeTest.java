@@ -21,10 +21,59 @@ public final class MicroblockShapeTest {
         testFullAndEmpty();
         testSingleCells();
         testArbitraryPattern();
+        testDenseShapeAndCache();
 
         System.out.println(
                 "ASTRA_TEST: MICROBLOCK_SHAPE_PASS"
         );
+    }
+
+    private static void testDenseShapeAndCache() {
+        var grid=new MicroblockGrid();grid.clear();
+        for(int y=0;y<16;y++) for(int z=0;z<16;z++) for(int x=0;x<16;x++)
+            if((x+y+z)%2==0) grid.add(x,y,z);
+        long start=System.nanoTime();
+        var shape=MicroblockShape.build(grid);
+        long elapsed=System.nanoTime()-start;
+        var boxes=shape.toAabbs();
+        require(boxes.size()==2048,"checkerboard cells merged across air");
+        var rebuilt=new MicroblockGrid();rebuilt.clear();
+        for(var box:boxes) {
+            requireClose(box.getXsize(),CELL,"checker width");
+            requireClose(box.getYsize(),CELL,"checker height");
+            requireClose(box.getZsize(),CELL,"checker depth");
+            rebuilt.add((int)Math.round(box.minX*16),(int)Math.round(box.minY*16),(int)Math.round(box.minZ*16));
+        }
+        require(grid.equals(rebuilt),"dense physical geometry changed");
+        var hit=shape.clip(new net.minecraft.world.phys.Vec3(-1,CELL/2,CELL/2),
+                new net.minecraft.world.phys.Vec3(2,CELL/2,CELL/2),net.minecraft.core.BlockPos.ZERO);
+        require(hit!=null && hit.getDirection()==net.minecraft.core.Direction.WEST,"dense ray hit");
+        requireClose(hit.getLocation().x,0,"dense ray boundary");
+        requireClose(shape.collide(net.minecraft.core.Direction.Axis.X,
+                new AABB(-.2,.01,.01,-.1,.04,.04),1),.1,"dense collision");
+        var host=new TestHostBlockEntity(net.minecraft.core.BlockPos.ZERO,AstraMicroblocks.TEST_HOST.defaultBlockState());
+        host.initializeDesign(MicroblockVolume.legacy(grid,HostMaterial.STONE));
+        var cached=host.physicalShape();
+        start=System.nanoTime();
+        for(int i=0;i<10000;i++) require(host.physicalShape()==cached,"unchanged collision cache miss");
+        long cachedElapsed=System.nanoTime()-start;
+        host.removeCell(0,0,0);
+        require(host.physicalShape()!=cached,"cut collision cache stale");
+        require(host.undoEdit(),"shape test undo");
+        require(host.physicalShape().toAabbs().equals(boxes),"undo collision mismatch");
+        var beforeLoad=host.physicalShape();
+        var replacement=host.volumeCopy();replacement.replace(0,0,0,HostMaterial.OAK_PLANKS);
+        var tag=new net.minecraft.nbt.CompoundTag();
+        tag.putLong("revision",host.revision());
+        tag.put("volume_v4",VolumePalette.write(replacement));
+        host.loadAdditional(net.minecraft.world.level.storage.TagValueInput.create(
+                net.minecraft.util.ProblemReporter.DISCARDING,net.minecraft.core.RegistryAccess.EMPTY,tag));
+        require(host.physicalShape()==beforeLoad,"material-only reload lost shape cache");
+        replacement.remove(0,0,0);tag.put("volume_v4",VolumePalette.write(replacement));
+        host.loadAdditional(net.minecraft.world.level.storage.TagValueInput.create(
+                net.minecraft.util.ProblemReporter.DISCARDING,net.minecraft.core.RegistryAccess.EMPTY,tag));
+        require(host.physicalShape()!=beforeLoad,"same-revision reload left stale collision");
+        System.out.println("ASTRA_TEST: DENSE_SHAPE_CACHE_PASS build_us="+elapsed/1000+" cached_10000_us="+cachedElapsed/1000);
     }
 
     private static void testFullAndEmpty() {
