@@ -58,7 +58,7 @@ public final class ClientRenderTest {
         var renderer = (TestHostBlockEntityRenderer) registered;
         TestHostRenderState original = renderer.createRenderState();
         renderer.extractRenderState(host, original, 0, Vec3.ZERO, null);
-        require(original.mesh.size() == 1536, "full host mesh");
+        require(original.mesh.size() == 6, "full host mesh");
         TestHostRenderState repeated = renderer.createRenderState();
         renderer.extractRenderState(host, repeated, 0, Vec3.ZERO, null);
         require(original.mesh == repeated.mesh, "unchanged host did not reuse mesh");
@@ -66,8 +66,8 @@ public final class ClientRenderTest {
         host.removeCell(8, 15, 8);
         TestHostRenderState carved = renderer.createRenderState();
         renderer.extractRenderState(host, carved, 0, Vec3.ZERO, null);
-        require(carved.mesh != original.mesh && carved.mesh.size() == 1540, "carve did not invalidate mesh");
-        require(original.mesh.size() == 1536, "previous render snapshot was mutated");
+        require(carved.mesh != original.mesh && carved.mesh.size() == 14, "carve did not invalidate mesh");
+        require(original.mesh.size() == 6, "previous render snapshot was mutated");
         verifyMesh(client, host, carved.mesh);
 
         // Exercise Fabric's injected submission overloads, including the break overlay.
@@ -80,7 +80,7 @@ public final class ClientRenderTest {
         host.undo();
         TestHostRenderState restored = renderer.createRenderState();
         renderer.extractRenderState(host, restored, 0, Vec3.ZERO, null);
-        require(restored.mesh != carved.mesh && restored.mesh.size() == 1536, "undo did not restore mesh");
+        require(restored.mesh != carved.mesh && restored.mesh.size() == 6, "undo did not restore mesh");
 
         var workshop = new TestHostBlockEntity(BlockPos.ZERO,AstraMicroblocks.TEST_HOST.defaultBlockState());
         var brush = dev.astra.microblocks.ChiselMode.CUBE_4.selection(
@@ -91,14 +91,14 @@ public final class ClientRenderTest {
         var cutMesh = workshopState.mesh;
         workshop.editCells(brush,dev.astra.microblocks.ChiselOperation.ADD);
         renderer.extractRenderState(workshop,workshopState,0,Vec3.ZERO,null);
-        require(workshopState.mesh != cutMesh && workshopState.mesh.size()==1536,"addition did not rebuild full mesh");
+        require(workshopState.mesh != cutMesh && workshopState.mesh.size()==6,"addition did not rebuild full mesh");
         require(workshop.undoEdit(),"client addition undo");
         renderer.extractRenderState(workshop,workshopState,0,Vec3.ZERO,null);
         verifyMesh(client,workshop,workshopState.mesh);
         require(workshopState.mesh.size()==cutMesh.size(),"addition undo geometry");
         require(workshop.redoEdit(),"client addition redo");
         renderer.extractRenderState(workshop,workshopState,0,Vec3.ZERO,null);
-        require(workshopState.mesh.size()==1536,"addition redo mesh");
+        require(workshopState.mesh.size()==6,"addition redo mesh");
 
         for (var mode : dev.astra.microblocks.ChiselMode.values()) {
             host.removeCells(mode.selection(new dev.astra.microblocks.MicroblockHitResolver.Cell(7,15,8),
@@ -112,7 +112,7 @@ public final class ClientRenderTest {
             require(cached.mesh == batch.mesh, "batch mesh not cached: " + mode);
             host.undo();
             renderer.extractRenderState(host, restored, 0, Vec3.ZERO, null);
-            require(restored.mesh.size() == 1536 && restored.mesh != batch.mesh, "batch undo mesh: " + mode);
+            require(restored.mesh.size() == 6 && restored.mesh != batch.mesh, "batch undo mesh: " + mode);
         }
 
         var replacement = new TestHostBlockEntity(BlockPos.ZERO, AstraMicroblocks.TEST_HOST.defaultBlockState());
@@ -135,6 +135,11 @@ public final class ClientRenderTest {
             var volume=dev.astra.microblocks.MicroblockVolume.empty(material);volume.add(5,6,7,material);
             var host=new TestHostBlockEntity(BlockPos.ZERO,dev.astra.microblocks.AstraMicroblocks.TEST_HOST.defaultBlockState());host.initializeDesign(volume);
             verifyMesh(client,host,TestHostBlockEntityRenderer.buildVolumeMesh(volume,sprites));
+            var full=new dev.astra.microblocks.MicroblockVolume(material);
+            host.initializeDesign(full);
+            var merged=TestHostBlockEntityRenderer.buildVolumeMesh(full,sprites);
+            require(merged.size()==6,"full palette state failed to merge: "+material.id());
+            verifyMesh(client,host,merged);
         }
         var mud=dev.astra.microblocks.HostMaterial.find("mud_bricks").orElseThrow();
         var vertex=new MicroblockRenderMesh.Vertex(3,4,5);
@@ -244,7 +249,7 @@ public final class ClientRenderTest {
         var mask=dev.astra.microblocks.ChiselMode.CUBE_2.selection(cell,net.minecraft.core.Direction.UP);
         host.editCells(mask,dev.astra.microblocks.ChiselOperation.REPLACE,dev.astra.microblocks.HostMaterial.OAK_PLANKS);
         renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
-        require(state.mesh!=before && state.mesh.size()==before.size(),"material-only edit stale cache or changed topology");
+        require(state.mesh!=before && state.mesh.size()>before.size(),"material-only edit must split merged surface and invalidate cache");
         verifyMesh(client,host,state.mesh);
         require(ChiselInspector.materialCounts(host).equals("Stone: 4088 | Oak: 8 | Empty: 0"),"inspector material counts");
         var noChange=dev.astra.microblocks.ChiselPreview.create(host.volumeCopy(),dev.astra.microblocks.ChiselMode.CUBE_2,
@@ -277,7 +282,7 @@ public final class ClientRenderTest {
                 host.editCells(mask,dev.astra.microblocks.ChiselOperation.CUT);
                 host.editCells(mask,dev.astra.microblocks.ChiselOperation.ADD,other);
                 renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
-                require(state.mesh.size()==1536,"internal material boundaries rendered faces");
+                require(state.mesh.size()==MicroblockRenderMesh.buildGreedy(host.volumeCopy()).size(),"internal material boundaries rendered faces");
                 verifyMesh(client,host,state.mesh);
                 var mixed=state.mesh;
                 renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
@@ -311,7 +316,7 @@ public final class ClientRenderTest {
             require(client.getBlockEntityRenderDispatcher().<TestHostBlockEntity, TestHostRenderState>getRenderer(host) == renderer, "material must share registered renderer");
             var state = renderer.createRenderState();
             renderer.extractRenderState(host, state, 0, Vec3.ZERO, null);
-            require(state.mesh.size() == 1536, "full material mesh");
+            require(state.mesh.size() == 6, "full material mesh");
             verifyMesh(client, host, state.mesh);
             var fullMesh = state.mesh;
             renderer.extractRenderState(host, state, 0, Vec3.ZERO, null);
@@ -325,7 +330,7 @@ public final class ClientRenderTest {
                 var cutMesh = state.mesh;
                 host.editCells(mask,dev.astra.microblocks.ChiselOperation.ADD);
                 renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
-                require(state.mesh!=cutMesh && state.mesh.size()==1536,"material repair mesh");
+                require(state.mesh!=cutMesh && state.mesh.size()==6,"material repair mesh");
                 verifyMesh(client,host,state.mesh);
                 require(host.undoEdit(),"material mesh undo");
                 renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
@@ -467,7 +472,7 @@ public final class ClientRenderTest {
     }
 
     private static void verifyMesh(Minecraft client, TestHostBlockEntity host, Mesh mesh) {
-        var faces = MicroblockRenderMesh.build(host.gridCopy());
+        var faces = MicroblockRenderMesh.buildGreedy(host.volumeCopy());
         int[] index = {0};
         mesh.forEach(quad -> {
             var face = faces.get(index[0]++);
@@ -489,8 +494,17 @@ public final class ClientRenderTest {
                     && minV >= sprite.getV0() - 0.000001f && maxV <= sprite.getV1() + 0.000001f,
                     "quad uses another material's atlas coordinates: " + texture);
             float spanU = sprite.getU1() - sprite.getU0(), spanV = sprite.getV1() - sprite.getV0();
-            require(Math.abs((maxU - minU) / spanU - 1 / 16f) < 0.002f, "incorrect texture U scale");
-            require(Math.abs((maxV - minV) / spanV - 1 / 16f) < 0.002f, "incorrect texture V scale");
+            float expectedMinU=Float.POSITIVE_INFINITY,expectedMaxU=Float.NEGATIVE_INFINITY;
+            float expectedMinV=Float.POSITIVE_INFINITY,expectedMaxV=Float.NEGATIVE_INFINITY;
+            for(int corner=0;corner<4;corner++) {
+                var expected=host.materialAt(face.x(),face.y(),face.z()).uv(face.direction(),face.vertex(corner));
+                expectedMinU=Math.min(expectedMinU,expected[0]);expectedMaxU=Math.max(expectedMaxU,expected[0]);
+                expectedMinV=Math.min(expectedMinV,expected[1]);expectedMaxV=Math.max(expectedMaxV,expected[1]);
+                require(Math.abs((quad.u(corner)-sprite.getU0())/spanU-expected[0])<0.002f,"texture U corner");
+                require(Math.abs((quad.v(corner)-sprite.getV0())/spanV-expected[1])<0.002f,"texture V corner");
+            }
+            require(Math.abs((maxU-minU)/spanU-(expectedMaxU-expectedMinU))<0.002f,"incorrect texture U scale");
+            require(Math.abs((maxV-minV)/spanV-(expectedMaxV-expectedMinV))<0.002f,"incorrect texture V scale");
         });
         require(index[0] == faces.size(), "mesh dropped faces");
     }

@@ -75,6 +75,8 @@ jobs:
             "ASTRA_TEST: MICROBLOCK_RENDER_MESH_PASS" \
             phase0.log
 
+          grep -F "ASTRA_TEST: GREEDY_MESH_PASS" phase0.log
+          grep -F "ASTRA_TEST: STRESS_MESH_PASS" phase0.log
           grep -F "ASTRA_TEST: CHISEL_MODES_PASS" phase0.log
           grep -F "ASTRA_TEST: CHISEL_PREVIEW_PASS" phase0.log
           grep -F "ASTRA_TEST: CHISEL_WORKSHOP_PASS" phase0.log

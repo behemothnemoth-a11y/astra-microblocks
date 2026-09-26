@@ -2,6 +2,17 @@
 
 Minecraft 26.2 / Fabric prototype for editing a persistent 16×16×16 block with the Astra Chisel.
 
+## Surface rendering optimization (0.3.1)
+
+Contiguous faces with the same material now merge into larger rectangles while
+preserving all carved cells and texture coordinates. A solid block uses six quads
+instead of 1,536. The Helix Foundry regression schematic drops from 876,178 to
+117,391 mesh quads (86.6% fewer); this is a geometry measurement, not an FPS claim.
+Existing worlds and schematics need no conversion or repaste.
+
+See [rendering performance](docs/RENDER-PERFORMANCE.md) for the exact fixture,
+validation and remaining rendering limits.
+
 ## Expanded material library (0.3.0)
 
 **164 vanilla blocks / 250 supported block states** can now be sculpted and mixed inside

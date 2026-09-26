@@ -52,6 +52,7 @@ loom {
         }
         server {
             property "astra.lifecycleTest", "true"
+            property "astra.meshFixture", file("tools/fixtures/helix-foundry.litematic").absolutePath
         }
     }
 }

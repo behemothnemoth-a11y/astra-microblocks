@@ -63,6 +63,52 @@ public final class MicroblockRenderMesh {
     /** Exact grid-boundary position; divide by SIZE when submitting block-local geometry. */
     public record Vertex(int x, int y, int z) {}
 
+    /** Rectangle of coplanar exposed cells with the same complete material state. */
+    public record Quad(int x, int y, int z, Direction direction, int width, int height) {
+        public Vertex vertex(int corner) {
+            var unit = new Face(x, y, z, direction).vertex(corner);
+            return switch (direction.getAxis()) {
+                case X -> new Vertex(unit.x(), y + (unit.y()-y)*height, z + (unit.z()-z)*width);
+                case Y -> new Vertex(x + (unit.x()-x)*width, unit.y(), z + (unit.z()-z)*height);
+                case Z -> new Vertex(x + (unit.x()-x)*width, y + (unit.y()-y)*height, unit.z());
+            };
+        }
+    }
+
+    /** Greedy surface meshing never merges across material states or cavity boundaries. */
+    public static List<Quad> buildGreedy(MicroblockVolume volume) {
+        var result = new ArrayList<Quad>();
+        var mask = new HostMaterial[256];
+        for (var direction : Direction.values()) for (int slice=0; slice<16; slice++) {
+            java.util.Arrays.fill(mask, null);
+            for (int v=0; v<16; v++) for (int u=0; u<16; u++) {
+                int x=direction.getAxis()==Direction.Axis.X?slice:u;
+                int y=direction.getAxis()==Direction.Axis.Y?slice:v;
+                int z=direction.getAxis()==Direction.Axis.Z?slice:direction.getAxis()==Direction.Axis.X?u:v;
+                var material=volume.materialAt(x,y,z);
+                if(material==null) continue;
+                int nx=x+direction.getStepX(),ny=y+direction.getStepY(),nz=z+direction.getStepZ();
+                if(nx<0 || nx>=16 || ny<0 || ny>=16 || nz<0 || nz>=16 || volume.materialAt(nx,ny,nz)==null)
+                    mask[v*16+u]=material;
+            }
+            for(int v=0;v<16;v++) for(int u=0;u<16;u++) {
+                var material=mask[v*16+u]; if(material==null) continue;
+                int width=1,height=1;
+                while(u+width<16 && mask[v*16+u+width]==material) width++;
+                outer: while(v+height<16) {
+                    for(int k=0;k<width;k++) if(mask[(v+height)*16+u+k]!=material) break outer;
+                    height++;
+                }
+                int x=direction.getAxis()==Direction.Axis.X?slice:u;
+                int y=direction.getAxis()==Direction.Axis.Y?slice:v;
+                int z=direction.getAxis()==Direction.Axis.Z?slice:direction.getAxis()==Direction.Axis.X?u:v;
+                result.add(new Quad(x,y,z,direction,width,height));
+                for(int j=0;j<height;j++) for(int k=0;k<width;k++) mask[(v+j)*16+u+k]=null;
+            }
+        }
+        return List.copyOf(result);
+    }
+
     /**
      * Generates every exposed face in grid index order (X fastest, then Z, then Y).
      */

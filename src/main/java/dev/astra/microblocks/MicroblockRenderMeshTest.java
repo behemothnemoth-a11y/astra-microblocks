@@ -12,6 +12,8 @@ public final class MicroblockRenderMeshTest {
     private MicroblockRenderMeshTest() {}
 
     public static void run() {
+        greedyTests();
+        benchmarkFixture();
         MicroblockGrid grid = new MicroblockGrid();
         check(grid, 1536, "full");
         grid.remove(8, 8, 8);
@@ -62,6 +64,76 @@ public final class MicroblockRenderMeshTest {
         expect(IndexOutOfBoundsException.class, () -> snapshot.getFirst().vertex(4));
         expect(IndexOutOfBoundsException.class, () -> snapshot.getFirst().vertex(-1));
         System.out.println("ASTRA_TEST: MICROBLOCK_RENDER_MESH_PASS");
+    }
+
+    private static void benchmarkFixture() {
+        String path=System.getProperty("astra.meshFixture");
+        if(path==null) return;
+        try {
+            var root=net.minecraft.nbt.NbtIo.readCompressed(java.nio.file.Path.of(path),net.minecraft.nbt.NbtAccounter.unlimitedHeap());
+            var regions=root.getCompound("Regions").orElseThrow();
+            int hosts=0,oldFaces=0,newQuads=0;long nanos=0;
+            for(String key:regions.keySet()) {
+                var region=regions.getCompound(key).orElseThrow();
+                for(var tag:region.getList("TileEntities").orElseThrow()) {
+                    var host=(net.minecraft.nbt.CompoundTag)tag;
+                    var volume=VolumePalette.read(host.getCompound("volume_v4").orElseThrow()).orElseThrow();
+                    verifyGreedy(volume);
+                    oldFaces+=MicroblockRenderMesh.build(volume.occupancyCopy()).size();
+                    long start=System.nanoTime();
+                    newQuads+=MicroblockRenderMesh.buildGreedy(volume).size();
+                    nanos+=System.nanoTime()-start;hosts++;
+                }
+            }
+            require(hosts>1000,"stress fixture missing hosts");
+            require(newQuads<oldFaces/3,"stress mesh reduction below regression target");
+            System.out.println("ASTRA_TEST: STRESS_MESH_PASS hosts="+hosts+" old_faces="+oldFaces+" new_quads="+newQuads+" build_ms="+nanos/1000000);
+        } catch(java.io.IOException ex) {throw new IllegalStateException(ex);}
+    }
+
+    private static void greedyTests() {
+        var full=new MicroblockVolume(HostMaterial.STONE);
+        require(MicroblockRenderMesh.buildGreedy(full).size()==6,"solid greedy mesh must be six quads");
+        verifyGreedy(full);
+        full.remove(8,8,8);verifyGreedy(full);
+        require(MicroblockRenderMesh.buildGreedy(full).size()==12,"enclosed cavity greedy surface");
+        for(int z=0;z<16;z++) full.remove(8,8,z);
+        verifyGreedy(full);
+        var random=new Random(728194);
+        for(int sample=0;sample<16;sample++) {
+            var volume=MicroblockVolume.empty(HostMaterial.STONE);
+            for(int y=0;y<16;y++) for(int z=0;z<16;z++) for(int x=0;x<16;x++)
+                if(random.nextDouble()<(sample+1)/17.0) volume.add(x,y,z,random.nextBoolean()?HostMaterial.STONE:HostMaterial.OAK_PLANKS);
+            verifyGreedy(volume);
+        }
+        var checker=MicroblockVolume.empty(HostMaterial.STONE);
+        for(int y=0;y<16;y++) for(int z=0;z<16;z++) for(int x=0;x<16;x++)
+            if((x+y+z)%2==0) checker.add(x,y,z,HostMaterial.STONE);
+        verifyGreedy(checker);
+        require(MicroblockRenderMesh.buildGreedy(checker).size()==12288,"isolated cells must retain every face");
+        System.out.println("ASTRA_TEST: GREEDY_MESH_PASS");
+    }
+    private static void verifyGreedy(MicroblockVolume volume) {
+        var expected=new HashSet<>(MicroblockRenderMesh.build(volume.occupancyCopy()));
+        var actual=new HashSet<MicroblockRenderMesh.Face>();
+        var quads=MicroblockRenderMesh.buildGreedy(volume);
+        require(quads.equals(MicroblockRenderMesh.buildGreedy(volume)),"greedy determinism");
+        for(var q:quads) {
+            var material=volume.materialAt(q.x(),q.y(),q.z());
+            for(int v=0;v<q.height();v++) for(int u=0;u<q.width();u++) {
+                int x=q.x()+(q.direction().getAxis()==Direction.Axis.X?0:u);
+                int y=q.y()+(q.direction().getAxis()==Direction.Axis.Y?0:v);
+                int z=q.z()+(q.direction().getAxis()==Direction.Axis.Z?0:q.direction().getAxis()==Direction.Axis.X?u:v);
+                require(volume.materialAt(x,y,z)==material,"greedy rectangle crossed materials");
+                require(actual.add(new MicroblockRenderMesh.Face(x,y,z,q.direction())),"duplicate greedy surface");
+            }
+            var a=q.vertex(0);var b=q.vertex(1);var c=q.vertex(2);
+            int nx=(b.y()-a.y())*(c.z()-a.z())-(b.z()-a.z())*(c.y()-a.y());
+            int ny=(b.z()-a.z())*(c.x()-a.x())-(b.x()-a.x())*(c.z()-a.z());
+            int nz=(b.x()-a.x())*(c.y()-a.y())-(b.y()-a.y())*(c.x()-a.x());
+            require(nx*q.direction().getStepX()+ny*q.direction().getStepY()+nz*q.direction().getStepZ()==q.width()*q.height(),"greedy winding or area");
+        }
+        require(actual.equals(expected),"greedy changed exposed surface");
     }
 
     private static void check(MicroblockGrid grid, int count, String label) {

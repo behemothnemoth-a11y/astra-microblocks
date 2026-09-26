@@ -74,9 +74,24 @@ public final class TestHostBlockEntityRenderer
         return buildMesh(grid,texture,null);
     }
     static Mesh buildVolumeMesh(dev.astra.microblocks.MicroblockVolume volume,SpriteGetter sprites) {
-        return buildMesh(volume.occupancyCopy(),face -> sprites.get(new SpriteId(TextureAtlas.LOCATION_BLOCKS,
-                volume.materialAt(face.x(),face.y(),face.z()).texture(face.direction()))),
-                (face,corner) -> volume.materialAt(face.x(),face.y(),face.z()).uv(face.direction(),face.vertex(corner)));
+        MutableMesh mesh = Renderer.get().mutableMesh();
+        QuadEmitter emitter = mesh.emitter();
+        for(var face : MicroblockRenderMesh.buildGreedy(volume)) {
+            var material=volume.materialAt(face.x(),face.y(),face.z());
+            emitter.cullFace(null);
+            emitter.nominalFace(face.direction());
+            for(int corner=0;corner<4;corner++) {
+                var vertex=face.vertex(corner);
+                emitter.pos(corner,vertex.x()/16f,vertex.y()/16f,vertex.z()/16f);
+                var uv=material.uv(face.direction(),vertex);
+                emitter.uv(corner,uv[0],uv[1]);
+            }
+            var sprite=sprites.get(new SpriteId(TextureAtlas.LOCATION_BLOCKS,material.texture(face.direction())));
+            emitter.materialBake(new Material.Baked(sprite,false),MutableQuadView.BAKE_NORMALIZED);
+            emitter.color(-1,-1,-1,-1);
+            emitter.emit();
+        }
+        return mesh.immutableCopy();
     }
     private static Mesh buildMesh(MicroblockGrid grid,
             java.util.function.Function<MicroblockRenderMesh.Face,TextureAtlasSprite> texture,
