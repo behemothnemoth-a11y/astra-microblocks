@@ -136,10 +136,11 @@ public final class ClientRenderTest {
             var host=new TestHostBlockEntity(BlockPos.ZERO,dev.astra.microblocks.AstraMicroblocks.TEST_HOST.defaultBlockState());host.initializeDesign(volume);
             verifyMesh(client,host,TestHostBlockEntityRenderer.buildVolumeMesh(volume,sprites));
             var full=new dev.astra.microblocks.MicroblockVolume(material);
-            host.initializeDesign(full);
+            var fullHost=new TestHostBlockEntity(BlockPos.ZERO,dev.astra.microblocks.AstraMicroblocks.TEST_HOST.defaultBlockState());
+            fullHost.initializeDesign(full);
             var merged=TestHostBlockEntityRenderer.buildVolumeMesh(full,sprites);
             require(merged.size()==6,"full palette state failed to merge: "+material.id());
-            verifyMesh(client,host,merged);
+            verifyMesh(client,fullHost,merged);
         }
         var mud=dev.astra.microblocks.HostMaterial.find("mud_bricks").orElseThrow();
         var vertex=new MicroblockRenderMesh.Vertex(3,4,5);
