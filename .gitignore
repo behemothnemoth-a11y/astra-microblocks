@@ -5,3 +5,4 @@ run-client-render-test/
 *.log
 .idea/
 *.iml
+run-litematica-integration/

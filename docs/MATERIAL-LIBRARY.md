@@ -1,4 +1,4 @@
-# Expanded material library — 0.3.0
+# Expanded material library — current as of 0.4.0
 
 This release replaces the two-material cell restriction with a local palette of supported
 vanilla block states. It keeps single-block editing, the existing collision/hit mesher,
@@ -20,11 +20,19 @@ and the original stone/oak registrations.
 
 ## Supported scope
 
-The catalog contains **164 block IDs and 250 states**. The full ID list is
+The catalog contains **235 block IDs and 325 states**. The full ID list is
 [material_blocks.txt](../tools/material_blocks.txt). It includes 16 concrete colors,
 16 wool colors, 16 colored terracottas plus plain terracotta; the plank families;
 overworld logs/wood and stripped forms; bamboo blocks; and selected masonry and decorative
 full cubes. X/Y/Z axis variants account for the additional states.
+
+Version 0.4.0 adds 71 block IDs / 75 states: ores (including deepslate and Nether
+variants), ancient debris, resource/raw-metal blocks, gilded blackstone, soils, gravel,
+sand, clay, mud, snow, bone and hay (X/Y/Z), dried kelp, sponges, honeycomb, melon,
+bookshelves, and all solid/cut/chiseled copper oxidation stages with waxed counterparts.
+Ore entries use their default visual state; lit redstone ore is not a separate material.
+Copper does not oxidize inside a sculpture, sand does not fall, sponges do not absorb
+water, and ores do not confer their vanilla drops.
 
 The catalog is explicit, not a permissive test for any full-looking block. Glass, leaves,
 fluids, stairs, inventories, redstone machinery, animated surfaces and tinted surfaces
@@ -90,12 +98,12 @@ Menu checks count the added Materials control and retain all earlier navigation 
 
 Additional automated gates cover:
 
-- Real chisel conversion and sampling for all 250 states; correct original-material repair,
+- Real chisel conversion and sampling for all 325 states; correct original-material repair,
   4095-cell first cuts, and undo/redo for every conversion.
 - Explicit rejection of glass, leaves, chests, stairs, water and air without converting them.
 - Every brush on all six faces with new masonry, colored concrete and horizontal logs;
   Add, Replace, material-only preview coverage, and exact undo/redo.
-- A sculpture mixing all 250 states; bit-packed storage; invalid fields/unsupported IDs;
+- A sculpture mixing all 325 states; bit-packed storage; invalid fields/unsupported IDs;
   old sculpture-item migration; item codec round trips; whole-design stamp undo/redo;
   four rotations and double mirrors; log-axis transformations.
 - Three real world boots preserving a 40-edit palette history at its 32-edit bound, both

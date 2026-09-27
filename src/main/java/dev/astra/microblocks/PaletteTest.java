@@ -47,7 +47,7 @@ public final class PaletteTest {
         host.initializeDesign(new MicroblockVolume(material("stone_bricks")));return sequence(host);
     }
     public static void phaseZero(ServerLevel level) {
-        check(HostMaterial.catalog().size()==250,"supported state catalog changed without updating coverage");
+        check(HostMaterial.catalog().size()==325,"supported state catalog changed without updating coverage");
         var tool=new ItemStack(AstraMicroblocks.ASTRA_CHISEL);var player=player(level);player.setItemInHand(InteractionHand.MAIN_HAND,tool);
         ChiselMode.SINGLE.store(tool);ChiselOperation.CUT.store(tool);
         var pos=HOST.south(4);
@@ -81,7 +81,7 @@ public final class PaletteTest {
         check(stamped.applyDesign(all)==1 && stamped.volumeCopy().equals(all.withOriginal(HostMaterial.STONE)),"palette stamp lost materials");
         check(stamped.undoEdit() && stamped.materialCount(HostMaterial.STONE)==4096 && stamped.redoEdit()
                 && stamped.volumeCopy().equals(all.withOriginal(HostMaterial.STONE)),"palette stamp history failed");
-        check(VolumePalette.read(encoded).orElseThrow().equals(all),"250-state palette storage corrupted");
+        check(VolumePalette.read(encoded).orElseThrow().equals(all),"325-state palette storage corrupted");
         for(var axis:Direction.Axis.values()) {
             var transformed=all;for(int i=0;i<4;i++) transformed=SculptureData.transform(transformed,axis,false);
             check(transformed.equals(all),"palette/log rotation cycle corrupted");

@@ -132,6 +132,7 @@ ServerLevel level =
         WorkflowTest.phaseZero(level);
         SculptureTest.phaseZero(level);
         PaletteTest.phaseZero(level);
+        SchematicTransformTest.phaseZero(level);
         require(
                 level.setBlock(
                         TEST_POS,
@@ -378,6 +379,7 @@ ServerLevel level =
         WorkflowTest.phaseOne(level);
         SculptureTest.phaseOne(level);
         PaletteTest.phaseOne(level);
+        SchematicTransformTest.verifySaved(level,"SCHEMATIC_PERSISTENCE_PASS");
         writePhase(2);
 
         System.out.println(
@@ -446,6 +448,7 @@ ServerLevel level =
         WorkflowTest.phaseTwo(level);
         SculptureTest.phaseTwo(level);
         PaletteTest.phaseTwo(level);
+        SchematicTransformTest.verifySaved(level,"SCHEMATIC_RESTART_PASS");
         writePhase(3);
 
         System.out.println(

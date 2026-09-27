@@ -26,14 +26,14 @@ public final class ClientRenderTest {
     public static void register() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // The initial atlas/model reload completes before the loading overlay closes.
-            if (finished) { ChiselMenuCapture.tick(client); return; }
+            if (finished) { if(Boolean.getBoolean("astra.litematicaTest")) LitematicaIntegrationTest.tick(client); else ChiselMenuCapture.tick(client); return; }
             if (!client.isGameLoadFinished()) return;
             finished = true;
             try {
                 run(client);
                 System.out.println("ASTRA_TEST: CLIENT_RENDER_PASS");
                 if (Boolean.getBoolean("astra.menuScreenshot")) ChiselMenuCapture.start(client);
-                else client.stop();
+                else if(!Boolean.getBoolean("astra.litematicaTest")) client.stop();
             } catch (Throwable failure) {
                 failure.printStackTrace();
                 System.out.println("ASTRA_TEST: CLIENT_RENDER_FAIL");
@@ -51,6 +51,7 @@ public final class ClientRenderTest {
         verifyWorkflow(client);
         verifySculptures(client);
         verifyPalette(client);
+        verifyOrientationReload(client);
         var host = new TestHostBlockEntity(BlockPos.ZERO, AstraMicroblocks.TEST_HOST.defaultBlockState());
         var registered = client.getBlockEntityRenderDispatcher()
                 .<TestHostBlockEntity, TestHostRenderState>getRenderer(host);
@@ -127,6 +128,26 @@ public final class ClientRenderTest {
         var sprite = client.getAtlasManager().get(new SpriteId(
                 TextureAtlas.LOCATION_BLOCKS, Identifier.withDefaultNamespace("block/stone")));
         require(TestHostBlockEntityRenderer.buildMesh(empty, sprite).size() == 0, "empty grid rendered surfaces");
+    }
+
+    private static void verifyOrientationReload(Minecraft client) {
+        var source=dev.astra.microblocks.SchematicTransformTest.specimen();
+        var tag=new net.minecraft.nbt.CompoundTag();tag.put("volume_v4",dev.astra.microblocks.VolumePalette.write(source));tag.putLong("revision",7);
+        for(int orientation=0;orientation<8;orientation++) {
+            var host=new TestHostBlockEntity(BlockPos.ZERO,AstraMicroblocks.TEST_HOST.defaultBlockState()
+                    .setValue(dev.astra.microblocks.TestHostBlock.ORIENTATION,orientation));
+            var renderer=(TestHostBlockEntityRenderer)client.getBlockEntityRenderDispatcher().<TestHostBlockEntity,TestHostRenderState>getRenderer(host);
+            dev.astra.microblocks.SchematicTransformTest.load(host,tag,net.minecraft.core.RegistryAccess.EMPTY);
+            var state=renderer.createRenderState();renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
+            verifyMesh(client,host,state.mesh);var before=state.mesh;
+            var replacement=source.copy();replacement.remove(0,0,0);
+            var changed=tag.copy();changed.put("volume_v4",dev.astra.microblocks.VolumePalette.write(replacement));
+            dev.astra.microblocks.SchematicTransformTest.load(host,changed,net.minecraft.core.RegistryAccess.EMPTY);
+            renderer.extractRenderState(host,state,0,Vec3.ZERO,null);
+            require(state.mesh!=before,"same-revision schematic overwrite left stale mesh");
+            verifyMesh(client,host,state.mesh);
+        }
+        System.out.println("ASTRA_TEST: SCHEMATIC_CLIENT_PASS");
     }
 
     private static void verifyPalette(Minecraft client) {

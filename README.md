@@ -2,6 +2,24 @@
 
 Minecraft 26.2 / Fabric prototype for editing a persistent 16×16×16 block with the Astra Chisel.
 
+## Schematic transforms and more full blocks (0.4.0)
+
+Litematica rotations and mirrors now transform the cells inside each sculpture along
+with its position. Directional material axes and undo/redo snapshots follow the same
+transform. Existing unrotated schematics remain readable, and saving/reloading a pasted
+sculpture does not rotate it again. Same-revision NBT replacement now refreshes cached
+client geometry. No Litematica dependency is required for ordinary play.
+
+The material library now supports **235 vanilla blocks / 325 states**: 71 additional
+blocks, including ores, resource blocks, raw metals, all solid/cut/chiseled copper
+oxidation and wax variants, bone, hay, soil/sand, and selected decorative cubes.
+These are sculpting materials: copper weathering, falling sand and other vanilla
+functional behavior are not simulated by Astra hosts.
+
+See [schematic compatibility and the 0.4.0 test plan](docs/SCHEMATIC-COMPATIBILITY.md)
+and [the current material library](docs/MATERIAL-LIBRARY.md). The earlier greedy-mesh
+and cached voxel-shape optimizations remain in place.
+
 ## Dense collision and selection shapes (0.3.2)
 
 Physical shapes now use a fixed voxel lattice and are cached while occupancy is

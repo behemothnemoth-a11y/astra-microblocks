@@ -57,9 +57,9 @@ public final class TestHostBlockEntityRenderer
         TextureAtlasSprite stone = sprites.get(new SpriteId(TextureAtlas.LOCATION_BLOCKS,HostMaterial.STONE.texture()));
         TextureAtlasSprite oak = sprites.get(new SpriteId(TextureAtlas.LOCATION_BLOCKS,HostMaterial.OAK_PLANKS.texture()));
         CachedMesh cached = cache.get(host);
-        if (cached == null || cached.revision() != host.revision() || cached.stone() != stone || cached.oak() != oak) {
+        if (cached == null || cached.revision() != host.contentVersion() || cached.stone() != stone || cached.oak() != oak) {
             var volume = host.volumeCopy();
-            cached = new CachedMesh(host.revision(), stone, oak, buildVolumeMesh(volume,sprites));
+            cached = new CachedMesh(host.contentVersion(), stone, oak, buildVolumeMesh(volume,sprites));
             cache.put(host, cached);
         }
         state.mesh = cached.mesh();

@@ -119,6 +119,10 @@ public final class TestHostBlockEntity extends BlockEntity {
     }
 
     private long revision;
+    private long contentVersion;
+    public long contentVersion() {return contentVersion;}
+    private int orientation() {return getBlockState().getValue(TestHostBlock.ORIENTATION);}
+
 
     public TestHostBlockEntity(
             BlockPos pos,
@@ -279,6 +283,7 @@ public final class TestHostBlockEntity extends BlockEntity {
         grid = previous;
 
         revision++;
+        contentVersion++;
 
         publish();
     }
@@ -291,6 +296,7 @@ public final class TestHostBlockEntity extends BlockEntity {
 
     private void finishEdit() {
         revision++;
+        contentVersion++;
         publish();
     }
 
@@ -359,6 +365,7 @@ public final class TestHostBlockEntity extends BlockEntity {
     protected void saveAdditional(
             ValueOutput output
     ) {
+        output.putInt("astra_orientation",orientation());
         output.putBoolean(
                 "grid_format_v1",
                 true
@@ -477,6 +484,19 @@ public final class TestHostBlockEntity extends BlockEntity {
         if (gridFormat) loadHistory(input);
         input.read("volume_v4",CompoundTag.CODEC).flatMap(VolumePalette::read).ifPresent(v -> grid=v);
         input.read("history_v4",CompoundTag.CODEC).ifPresent(this::loadPaletteHistory);
+        int savedOrientation=input.getIntOr("astra_orientation",0);
+        if(savedOrientation<0 || savedOrientation>7) savedOrientation=0;
+        int delta=SculptureOrientation.compose(orientation(),SculptureOrientation.inverse(savedOrientation));
+        if(delta!=0) {
+            grid=SculptureOrientation.transform(grid,delta);
+            if(undoGrid!=null) undoGrid=SculptureOrientation.transform(undoGrid,delta);
+            var undo=new java.util.ArrayList<>(olderUndo);olderUndo.clear();
+            for(var snapshot:undo) olderUndo.addLast(SculptureOrientation.transform(snapshot,delta));
+            var redo=new java.util.ArrayList<>(redoHistory);redoHistory.clear();
+            for(var snapshot:redo) redoHistory.addLast(SculptureOrientation.transform(snapshot,delta));
+        }
+        contentVersion++;
+
     }
 
     /** Compact bounded snapshots, oldest undo first and next redo last. */
@@ -542,6 +562,7 @@ public final class TestHostBlockEntity extends BlockEntity {
     public CompoundTag getUpdateTag(HolderLookup.Provider registryLookup) {
         // Clients need current geometry/materials and counts, never the full history payload.
         CompoundTag tag = new CompoundTag();
+        tag.putInt("astra_orientation",orientation());
         tag.putBoolean("grid_format_v1",true);
         tag.putBoolean("materials_v2",true);
         tag.putLong("revision",revision);

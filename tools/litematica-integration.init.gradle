@@ -1,0 +1,16 @@
+// Optional local gate: supply your compatible Litematica and MaLiLib jars.
+gradle.beforeProject { p ->
+    p.pluginManager.withPlugin("java") {
+        for (key in ["astraLitematicaJar", "astraMalilibJar"]) {
+            def path = p.findProperty(key)
+            if (path == null || !p.file(path).isFile()) throw new GradleException("Missing jar: -P${key}=...")
+            p.dependencies.add("runtimeOnly", p.files(path))
+        }
+    }
+}
+gradle.projectsEvaluated {
+    def p = rootProject
+    p.loom.runs.clientRenderTest.runDir = "run-litematica-integration"
+    p.loom.runs.clientRenderTest.property "astra.litematicaTest", "true"
+    p.loom.runs.clientRenderTest.property "astra.meshFixture", new File(p.projectDir, "tools/fixtures/helix-foundry.litematic").absolutePath
+}

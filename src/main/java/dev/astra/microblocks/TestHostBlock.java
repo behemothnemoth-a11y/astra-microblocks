@@ -6,6 +6,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -21,11 +22,26 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  */
 public final class TestHostBlock extends BaseEntityBlock {
 
+    public static final net.minecraft.world.level.block.state.properties.IntegerProperty ORIENTATION =
+            net.minecraft.world.level.block.state.properties.IntegerProperty.create("orientation",0,7);
+
     public static final MapCodec<TestHostBlock> CODEC =
             simpleCodec(TestHostBlock::new);
 
     public TestHostBlock(Properties properties) {
         super(properties);
+        registerDefaultState(stateDefinition.any().setValue(ORIENTATION,0));
+    }
+
+    @Override protected void createBlockStateDefinition(
+            net.minecraft.world.level.block.state.StateDefinition.Builder<Block,BlockState> builder) {
+        builder.add(ORIENTATION);
+    }
+    @Override protected BlockState rotate(BlockState state,net.minecraft.world.level.block.Rotation rotation) {
+        return state.setValue(ORIENTATION,SculptureOrientation.compose(SculptureOrientation.rotation(rotation),state.getValue(ORIENTATION)));
+    }
+    @Override protected BlockState mirror(BlockState state,net.minecraft.world.level.block.Mirror mirror) {
+        return state.setValue(ORIENTATION,SculptureOrientation.compose(SculptureOrientation.mirror(mirror),state.getValue(ORIENTATION)));
     }
 
     @Override
