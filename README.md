@@ -2,6 +2,25 @@
 
 Minecraft 26.2 / Fabric prototype for editing a persistent 16×16×16 block with the Astra Chisel.
 
+## Glass, animated materials and viewing distance (0.5.0)
+
+Microblock rendering now follows the effective chunk render distance instead of the
+inherited 64-block limit. Loaded-section and frustum culling remain active. Existing
+sculptures benefit immediately without repasting.
+
+The catalog now contains **352 blocks / 468 states**, adding 117 full-cube blocks:
+clear/tinted/all 16 stained glasses, ice variants, copper grates, animated Nether
+stems/hyphae, magma, prismarine, sea lanterns, sculk, resin, coral, concrete powders,
+froglights, and more. Transparent neighbors no longer hide opaque cell surfaces;
+matching glass cells still merge and omit their internal faces. Native atlas animation
+and vanilla material transparency are retained in world and sculpture-item meshes.
+
+These remain decorative materials, not working machines or fluid simulations. Tinted
+foliage, non-cube models, inventories, and unlisted property states remain unsupported.
+Light-source textures do not make the host emit block light. Resource packs that alter
+material opacity beyond vanilla may need additional support. See the
+[0.5.0 test plan](docs/GLASS-ANIMATION-TEST-PLAN.md).
+
 ## Schematic transforms and more full blocks (0.4.0)
 
 Litematica rotations and mirrors now transform the cells inside each sculpture along
@@ -64,8 +83,9 @@ items, copy/stamp and transformations support the full palette. Commands also ac
 `/astra material minecraft:oak_log[axis=x]`.
 
 See [the supported-block list and implementation notes](docs/MATERIAL-LIBRARY.md).
-This remains a single-block creative building prototype: transparent, animated, tinted,
-fluid and functional blocks are outside this release. Host hardness, mining requirements
+In 0.3.0, transparent and animated blocks were excluded; 0.5.0 adds those listed
+in the current catalog. Tinted foliage, fluids and functional behavior remain outside
+the current scope. Host hardness, mining requirements
 and sounds remain those of Astra's registered host; conversion preserves appearance and
 cell material, not every vanilla block behavior. No survival material costs are added.
 

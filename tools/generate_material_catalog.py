@@ -1,9 +1,12 @@
 """Generate material descriptors from an installed Minecraft client jar; never copies textures.
+Requires Pillow for source texture alpha inspection.
 Usage: python tools/generate_material_catalog.py /path/to/26.2-client.jar
 """
 import json
 import sys
 import zipfile
+import io
+from PIL import Image
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,22 +32,31 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
             assert len(elements) == 1 and elements[0]["from"] == [0, 0, 0] and elements[0]["to"] == [16, 16, 16], name
             assert not elements[0].get("rotation"), name
             faces = {}
+            transparent = False
+            animated = False
             for direction, face in elements[0]["faces"].items():
                 assert "tintindex" not in face, (name, "Tint needs additional support")
                 uv = face.get("uv", [0, 0, 16, 16])
                 assert all(value in (0, 16) for value in uv) and abs(uv[2]-uv[0]) == 16 and abs(uv[3]-uv[1]) == 16, (name, "Partial face UV")
                 texture = face["texture"]
-                while texture.startswith("#"):
+                while isinstance(texture, str) and texture.startswith("#"):
                     texture = data["textures"][texture[1:]]
+                force_translucent = isinstance(texture, dict) and texture.get("force_translucent", False)
+                if isinstance(texture, dict): texture = texture["sprite"]
+                transparent |= force_translucent
                 if ":" not in texture:
                     texture = "minecraft:" + texture
                 texture_path = "assets/minecraft/textures/" + texture.split(":")[1] + ".png"
                 assert texture_path in archive.namelist(), (name, texture)
-                assert texture_path + ".mcmeta" not in archive.namelist(), (name, "Animated texture")
-                faces[direction] = {"texture": texture, "rotation": face.get("rotation", 0), "uv": uv}
+                with Image.open(io.BytesIO(archive.read(texture_path))) as image:
+                    transparent |= image.convert("RGBA").getchannel("A").getextrema()[0] < 255
+                if texture_path + ".mcmeta" in archive.namelist():
+                    animated |= "animation" in json.loads(archive.read(texture_path + ".mcmeta"))
+                faces[direction] = {"texture": texture, "rotation": face.get("rotation", 0), "uv": uv, "force_translucent": force_translucent}
             assert len(faces) == 6, name
             entries.append({"id": "minecraft:" + name + ("[" + properties + "]" if properties else ""),
-                            "x": variant.get("x", 0), "y": variant.get("y", 0), "faces": faces})
+                            "x": variant.get("x", 0), "y": variant.get("y", 0),
+                            "transparent": transparent, "animated": animated, "faces": faces})
 
 output = ROOT / "src/main/resources/data/astra_microblocks/materials.json"
 output.write_text("[\n" + ",\n".join("  " + json.dumps(entry, separators=(",", ":")) for entry in entries) + "\n]\n", encoding="utf-8", newline="\n")

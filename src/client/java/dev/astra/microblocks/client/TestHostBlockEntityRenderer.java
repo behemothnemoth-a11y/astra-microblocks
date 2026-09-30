@@ -44,6 +44,17 @@ public final class TestHostBlockEntityRenderer
         sprites = context.sprites();
     }
 
+    /** Loaded chunk sections still handle frustum/occlusion culling. Avoid the default 64-block sphere. */
+    @Override
+    public int getViewDistance() {
+        return viewDistance(net.minecraft.client.Minecraft.getInstance().options.getEffectiveRenderDistance());
+    }
+
+    static int viewDistance(int chunks) {
+        // A square chunk horizon has farther corners; include vertical build height as well.
+        return (int)Math.ceil(Math.sqrt(2.0 * Math.pow(Math.max(2, chunks) * 16 + 16, 2) + 384.0 * 384));
+    }
+
     @Override
     public TestHostRenderState createRenderState() {
         return new TestHostRenderState();
@@ -87,7 +98,7 @@ public final class TestHostBlockEntityRenderer
                 emitter.uv(corner,uv[0],uv[1]);
             }
             var sprite=sprites.get(new SpriteId(TextureAtlas.LOCATION_BLOCKS,material.texture(face.direction())));
-            emitter.materialBake(new Material.Baked(sprite,false),MutableQuadView.BAKE_NORMALIZED);
+            emitter.materialBake(new Material.Baked(sprite,material.forceTranslucent(face.direction())),MutableQuadView.BAKE_NORMALIZED);
             emitter.color(-1,-1,-1,-1);
             emitter.emit();
         }

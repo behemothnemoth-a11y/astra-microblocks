@@ -12,6 +12,7 @@ public final class MicroblockRenderMeshTest {
     private MicroblockRenderMeshTest() {}
 
     public static void run() {
+        transparentTests();
         greedyTests();
         benchmarkFixture();
         MicroblockGrid grid = new MicroblockGrid();
@@ -66,6 +67,31 @@ public final class MicroblockRenderMeshTest {
         System.out.println("ASTRA_TEST: MICROBLOCK_RENDER_MESH_PASS");
     }
 
+    private static void transparentTests() {
+        var glass=HostMaterial.find("glass").orElseThrow();
+        var blue=HostMaterial.find("blue_stained_glass").orElseThrow();
+        var volume=MicroblockVolume.empty(HostMaterial.STONE);
+        volume.add(7,7,7,HostMaterial.STONE);volume.add(8,7,7,glass);
+        require(MicroblockRenderMesh.buildGreedy(volume).size()==11,"glass hid adjacent stone face");
+        volume.replace(7,7,7,glass);
+        require(MicroblockRenderMesh.buildGreedy(volume).size()==6,"same glass retained internal interface");
+        volume.replace(7,7,7,blue);
+        require(MicroblockRenderMesh.buildGreedy(volume).size()==12,"different glass lost color interface");
+        require(MicroblockRenderMesh.buildGreedy(new MicroblockVolume(glass)).size()==6,"solid glass not merged");
+        require(glass.transparent() && glass.forceTranslucent(Direction.NORTH),"glass material metadata");
+        for(String id:List.of("magma_block","sea_lantern","prismarine","crimson_stem[axis=y]","warped_stem[axis=x]"))
+            require(HostMaterial.find(id).orElseThrow().animated(),"animated material not catalogued: "+id);
+        var random=new Random(75163);
+        for(int sample=0;sample<8;sample++) {
+            var mixed=MicroblockVolume.empty(glass);
+            var palette=new HostMaterial[]{HostMaterial.STONE,glass,blue};
+            for(int y=0;y<16;y++) for(int z=0;z<16;z++) for(int x=0;x<16;x++)
+                if(random.nextBoolean()) mixed.add(x,y,z,palette[random.nextInt(palette.length)]);
+            verifyGreedy(mixed);
+        }
+        System.out.println("ASTRA_TEST: TRANSPARENT_MESH_PASS");
+    }
+
     private static void benchmarkFixture() {
         String path=System.getProperty("astra.meshFixture");
         if(path==null) return;
@@ -114,7 +140,16 @@ public final class MicroblockRenderMeshTest {
         System.out.println("ASTRA_TEST: GREEDY_MESH_PASS");
     }
     private static void verifyGreedy(MicroblockVolume volume) {
-        var expected=new HashSet<>(MicroblockRenderMesh.build(volume.occupancyCopy()));
+        var expected=new HashSet<MicroblockRenderMesh.Face>();
+        for(int y=0;y<16;y++) for(int z=0;z<16;z++) for(int x=0;x<16;x++) {
+            var material=volume.materialAt(x,y,z);if(material==null) continue;
+            for(var direction:Direction.values()) {
+                int nx=x+direction.getStepX(),ny=y+direction.getStepY(),nz=z+direction.getStepZ();
+                var neighbor=nx<0||nx>=16||ny<0||ny>=16||nz<0||nz>=16?null:volume.materialAt(nx,ny,nz);
+                if(neighbor==null || (neighbor!=material && neighbor.transparent()))
+                    expected.add(new MicroblockRenderMesh.Face(x,y,z,direction));
+            }
+        }
         var actual=new HashSet<MicroblockRenderMesh.Face>();
         var quads=MicroblockRenderMesh.buildGreedy(volume);
         require(quads.equals(MicroblockRenderMesh.buildGreedy(volume)),"greedy determinism");

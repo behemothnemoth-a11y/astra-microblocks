@@ -26,14 +26,14 @@ public final class ClientRenderTest {
     public static void register() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // The initial atlas/model reload completes before the loading overlay closes.
-            if (finished) { if(Boolean.getBoolean("astra.litematicaTest")) LitematicaIntegrationTest.tick(client); else ChiselMenuCapture.tick(client); return; }
+            if (finished) { if(Boolean.getBoolean("astra.materialScreenshot")) MaterialRenderCapture.tick(client); else if(Boolean.getBoolean("astra.litematicaTest")) LitematicaIntegrationTest.tick(client); else ChiselMenuCapture.tick(client); return; }
             if (!client.isGameLoadFinished()) return;
             finished = true;
             try {
                 run(client);
                 System.out.println("ASTRA_TEST: CLIENT_RENDER_PASS");
                 if (Boolean.getBoolean("astra.menuScreenshot")) ChiselMenuCapture.start(client);
-                else if(!Boolean.getBoolean("astra.litematicaTest")) client.stop();
+                else if(!Boolean.getBoolean("astra.litematicaTest") && !Boolean.getBoolean("astra.materialScreenshot")) client.stop();
             } catch (Throwable failure) {
                 failure.printStackTrace();
                 System.out.println("ASTRA_TEST: CLIENT_RENDER_FAIL");
@@ -43,6 +43,7 @@ public final class ClientRenderTest {
     }
 
     private static void run(Minecraft client) {
+        verifyNewMaterials(client);
         verifyChiselItem(client);
         ChiselWheelTest.run(client);
         verifyInspector(client);
@@ -128,6 +129,33 @@ public final class ClientRenderTest {
         var sprite = client.getAtlasManager().get(new SpriteId(
                 TextureAtlas.LOCATION_BLOCKS, Identifier.withDefaultNamespace("block/stone")));
         require(TestHostBlockEntityRenderer.buildMesh(empty, sprite).size() == 0, "empty grid rendered surfaces");
+    }
+
+    private static void verifyNewMaterials(Minecraft client) {
+        var host=new TestHostBlockEntity(BlockPos.ZERO,AstraMicroblocks.TEST_HOST.defaultBlockState());
+        var renderer=(TestHostBlockEntityRenderer)client.getBlockEntityRenderDispatcher()
+                .<TestHostBlockEntity,TestHostRenderState>getRenderer(host);
+        require(renderer.shouldRender(host,new Vec3(128,0,0)),"64-block render cutoff still active");
+        require(!renderer.shouldRender(host,new Vec3(renderer.getViewDistance()+2,0,0)),"unbounded distance");
+        require(!renderer.shouldRenderOffScreen(),"frustum culling disabled");
+        require(TestHostBlockEntityRenderer.viewDistance(16)>TestHostBlockEntityRenderer.viewDistance(8),"distance ignores chunks");
+        var sprites=(net.minecraft.client.resources.model.sprite.SpriteGetter)client.getAtlasManager()::get;
+        for(var material:dev.astra.microblocks.HostMaterial.catalog()) {
+            var mesh=TestHostBlockEntityRenderer.buildVolumeMesh(new dev.astra.microblocks.MicroblockVolume(material),sprites);
+            mesh.forEach(quad -> {
+                var sprite=sprites.get(new SpriteId(TextureAtlas.LOCATION_BLOCKS,material.texture(quad.lightFace())));
+                require(quad.animated()==sprite.isAnimated(),"animation flag lost: "+material);
+                if(material.forceTranslucent(quad.lightFace()))
+                    require(quad.chunkLayer()==net.minecraft.client.renderer.chunk.ChunkSectionLayer.TRANSLUCENT,"glass not translucent");
+            });
+            if(material.animated()) {
+                boolean found=false;
+                for(var face:net.minecraft.core.Direction.values())
+                    found |= sprites.get(new SpriteId(TextureAtlas.LOCATION_BLOCKS,material.texture(face))).isAnimated();
+                require(found,"animated atlas entry missing: "+material);
+            }
+        }
+        System.out.println("ASTRA_TEST: GLASS_ANIMATION_DISTANCE_CLIENT_PASS");
     }
 
     private static void verifyOrientationReload(Minecraft client) {

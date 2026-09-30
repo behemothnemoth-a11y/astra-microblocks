@@ -1,116 +1,485 @@
-# Expanded material library — current as of 0.4.0
+# Material library — 0.5.0
 
-This release replaces the two-material cell restriction with a local palette of supported
-vanilla block states. It keeps single-block editing, the existing collision/hit mesher,
-and the original stone/oak registrations.
+352 vanilla full-cube blocks / 468 supported states. Existing IDs remain unchanged.
+Select with B or `/astra material minecraft:glass`, then Add or Replace; first cutting
+a supported vanilla default state converts it. Axis variants are explicitly supported.
+Other property combinations are not silently flattened. Crafting/decorative surfaces
+become sculpture material; functional behavior, gravity, growth, light emission and
+block-entity inventories are not reproduced. Inventory-bearing blocks are excluded.
 
-## Controls and behavior
+Vanilla animated sprites use the live atlas without rebuilding meshes every tick.
+Glass retains transparency in world, inventory and exported sculpture geometry.
+Vanilla transparency metadata controls topology; arbitrary resource-pack opacity
+changes are not dynamically remeshed. Adjacent host boundaries are independently
+meshed, so glass can show seams at full-block boundaries.
 
-- Place a supported vanilla full cube and right-click with the Astra Chisel to convert
-  and edit it. Cut, Add and Replace retain their existing brush rules. A cut records a
-  full-material host as its previous state; undo restores its cells, not the vanilla block ID.
-- B opens a searchable material library; G also has a Materials button. Preview thumbnails
-  include log orientation. Hover for the full state name. Selection stays server-authoritative.
-- P samples the first supported vanilla block or sculpted cell hit by the server ray.
-  An intervening vanilla stone block now samples stone instead of looking through it.
-- Recent stores up to eight selections on that chisel. Original repairs with the
-  sculpture's original material and axis. It does not infer material from the clicked face.
-- All existing sculpture-item, clipboard, stamping, rotation, mirroring and history
-  operations carry the full cell palette. Rotation also rotates log/pillar axes.
+## Supported states
 
-## Supported scope
-
-The catalog contains **235 block IDs and 325 states**. The full ID list is
-[material_blocks.txt](../tools/material_blocks.txt). It includes 16 concrete colors,
-16 wool colors, 16 colored terracottas plus plain terracotta; the plank families;
-overworld logs/wood and stripped forms; bamboo blocks; and selected masonry and decorative
-full cubes. X/Y/Z axis variants account for the additional states.
-
-Version 0.4.0 adds 71 block IDs / 75 states: ores (including deepslate and Nether
-variants), ancient debris, resource/raw-metal blocks, gilded blackstone, soils, gravel,
-sand, clay, mud, snow, bone and hay (X/Y/Z), dried kelp, sponges, honeycomb, melon,
-bookshelves, and all solid/cut/chiseled copper oxidation stages with waxed counterparts.
-Ore entries use their default visual state; lit redstone ore is not a separate material.
-Copper does not oxidize inside a sculpture, sand does not fall, sponges do not absorb
-water, and ores do not confer their vanilla drops.
-
-The catalog is explicit, not a permissive test for any full-looking block. Glass, leaves,
-fluids, stairs, inventories, redstone machinery, animated surfaces and tinted surfaces
-are not converted. Nether stems and animated prismarine are excluded while their supported
-opaque plank/brick variants remain available. Other mods' blocks are not yet included.
-
-Converted blocks use Astra's existing host behavior for hardness, mining eligibility,
-sounds and lighting; the material data represents visual block states. This is not a
-survival-economy or vanilla-functionality emulation release. Ordinary resource-pack texture
-replacements work; arbitrary changes to vanilla model topology are outside the catalog.
-
-## Storage and migration
-
-`HostMaterial` now interns supported state identities such as
-`minecraft:oak_log[axis=x]`; identity comparisons remain valid throughout the edit path.
-`MicroblockVolume` keeps exact material references alongside the established occupancy
-mask. A material-only edit leaves collision geometry untouched.
-
-`VolumePalette` assigns local nonzero indices to the materials used in a sculpture;
-zero means empty. Indices are bit-packed into longs using the smallest width needed for
-that palette. The record also stores the original material and validates version, palette
-size, state IDs, bit width, packed length and every decoded index. Invalid saved items
-cannot be placed or consumed. The supported-state catalog excludes functional blocks.
-
-Legacy stone/oak block entities still read their old occupancy/oak masks and v3 history.
-Expanded-material hosts write a v4 current volume and bounded v4 history; both history
-stacks preserve their order and cursor. Only current cells and history counts are sent to
-clients, never the full history. A malformed v4 history is discarded as a whole while its
-valid current volume is retained. Stone/oak-only saves can keep the compact legacy format.
-
-New portable items and clipboard designs use palette version 2. The reader also supports
-0.2.0's version-1 stone/oak item data. Per-tool material settings are additive, preserving
-brush, operation, clipboard and last-edit metadata. The previous versions cannot represent
-expanded materials; downgrading a world after using them is not supported.
-
-## Rendering and source references
-
-The original Chisels & Bits
-[StateEntryPalette](https://github.com/ChiselsAndBits/Chisels-and-Bits/blob/61d368ccca157ac3d12f681fca8b1735404ab1b2/api/src/main/java/mod/chiselsandbits/api/block/storage/StateEntryPalette.java)
-and
-[BlockInformation](https://github.com/ChiselsAndBits/Chisels-and-Bits/blob/61d368ccca157ac3d12f681fca8b1735404ab1b2/api/src/main/java/mod/chiselsandbits/api/blockinformation/BlockInformation.java)
-were reviewed for their palette and block-state architecture. Astra's implementation and
-save format are independent; original-mod code and saves are not imported.
-
-The catalog's six face textures, face UV rotations and block-state model rotations are
-resolved from the installed Minecraft 26.2 client model definitions. Rebuild with:
-
-```text
-python tools/generate_material_catalog.py /path/to/minecraft-26.2-client.jar
-```
-
-The generator verifies full-cube geometry, six faces, non-animated textures and supported
-state properties. It copies texture identifiers and model metadata, not texture images.
-World meshes, saved-item meshes and material-library thumbnails share the same directional
-texture/UV mapping. Log end grain follows its stored axis, including after design rotation.
-
-## Verification
-
-All previous lifecycle, brush, material, full-history, sculpture and client gates remain
-required. The existing sampling test now checks the deliberately expanded behavior:
-sampling an occluding vanilla stone block selects stone and never the cell behind it.
-Menu checks count the added Materials control and retain all earlier navigation assertions.
-
-Additional automated gates cover:
-
-- Real chisel conversion and sampling for all 325 states; correct original-material repair,
-  4095-cell first cuts, and undo/redo for every conversion.
-- Explicit rejection of glass, leaves, chests, stairs, water and air without converting them.
-- Every brush on all six faces with new masonry, colored concrete and horizontal logs;
-  Add, Replace, material-only preview coverage, and exact undo/redo.
-- A sculpture mixing all 325 states; bit-packed storage; invalid fields/unsupported IDs;
-  old sculpture-item migration; item codec round trips; whole-design stamp undo/redo;
-  four rotations and double mirrors; log-axis transformations.
-- Three real world boots preserving a 40-edit palette history at its 32-edit bound, both
-  undo and redo stacks, chest sculpture items, clipboard, recent material choices, placed
-  recovered items and their subsequent drops.
-- Current-volume network serialization without full history; invalid-history isolation.
-- Loaded client atlas textures and UV scale for all states and a dense mixed sculpture;
-  searchable library selection, real mouse clicks, and both small/large screen layouts.
-
-These are disposable automated worlds and clients; they do not modify the user's builds.
+- `minecraft:stone`
+- `minecraft:cobblestone`
+- `minecraft:mossy_cobblestone`
+- `minecraft:stone_bricks`
+- `minecraft:mossy_stone_bricks`
+- `minecraft:cracked_stone_bricks`
+- `minecraft:chiseled_stone_bricks`
+- `minecraft:smooth_stone`
+- `minecraft:granite`
+- `minecraft:polished_granite`
+- `minecraft:diorite`
+- `minecraft:polished_diorite`
+- `minecraft:andesite`
+- `minecraft:polished_andesite`
+- `minecraft:deepslate[axis=x]`
+- `minecraft:deepslate[axis=y]`
+- `minecraft:deepslate[axis=z]`
+- `minecraft:cobbled_deepslate`
+- `minecraft:polished_deepslate`
+- `minecraft:deepslate_bricks`
+- `minecraft:cracked_deepslate_bricks`
+- `minecraft:deepslate_tiles`
+- `minecraft:cracked_deepslate_tiles`
+- `minecraft:chiseled_deepslate`
+- `minecraft:tuff`
+- `minecraft:polished_tuff`
+- `minecraft:tuff_bricks`
+- `minecraft:chiseled_tuff`
+- `minecraft:chiseled_tuff_bricks`
+- `minecraft:calcite`
+- `minecraft:sandstone`
+- `minecraft:cut_sandstone`
+- `minecraft:chiseled_sandstone`
+- `minecraft:smooth_sandstone`
+- `minecraft:red_sandstone`
+- `minecraft:cut_red_sandstone`
+- `minecraft:chiseled_red_sandstone`
+- `minecraft:smooth_red_sandstone`
+- `minecraft:bricks`
+- `minecraft:mud_bricks`
+- `minecraft:packed_mud`
+- `minecraft:blackstone`
+- `minecraft:polished_blackstone`
+- `minecraft:polished_blackstone_bricks`
+- `minecraft:cracked_polished_blackstone_bricks`
+- `minecraft:chiseled_polished_blackstone`
+- `minecraft:basalt[axis=x]`
+- `minecraft:basalt[axis=y]`
+- `minecraft:basalt[axis=z]`
+- `minecraft:polished_basalt[axis=x]`
+- `minecraft:polished_basalt[axis=y]`
+- `minecraft:polished_basalt[axis=z]`
+- `minecraft:smooth_basalt`
+- `minecraft:quartz_block`
+- `minecraft:quartz_bricks`
+- `minecraft:quartz_pillar[axis=x]`
+- `minecraft:quartz_pillar[axis=y]`
+- `minecraft:quartz_pillar[axis=z]`
+- `minecraft:chiseled_quartz_block`
+- `minecraft:smooth_quartz`
+- `minecraft:prismarine_bricks`
+- `minecraft:dark_prismarine`
+- `minecraft:purpur_block`
+- `minecraft:purpur_pillar[axis=x]`
+- `minecraft:purpur_pillar[axis=y]`
+- `minecraft:purpur_pillar[axis=z]`
+- `minecraft:end_stone`
+- `minecraft:end_stone_bricks`
+- `minecraft:netherrack`
+- `minecraft:nether_bricks`
+- `minecraft:red_nether_bricks`
+- `minecraft:cracked_nether_bricks`
+- `minecraft:chiseled_nether_bricks`
+- `minecraft:terracotta`
+- `minecraft:obsidian`
+- `minecraft:oak_planks`
+- `minecraft:oak_log[axis=x]`
+- `minecraft:oak_log[axis=y]`
+- `minecraft:oak_log[axis=z]`
+- `minecraft:stripped_oak_log[axis=x]`
+- `minecraft:stripped_oak_log[axis=y]`
+- `minecraft:stripped_oak_log[axis=z]`
+- `minecraft:oak_wood[axis=x]`
+- `minecraft:oak_wood[axis=y]`
+- `minecraft:oak_wood[axis=z]`
+- `minecraft:stripped_oak_wood[axis=x]`
+- `minecraft:stripped_oak_wood[axis=y]`
+- `minecraft:stripped_oak_wood[axis=z]`
+- `minecraft:spruce_planks`
+- `minecraft:spruce_log[axis=x]`
+- `minecraft:spruce_log[axis=y]`
+- `minecraft:spruce_log[axis=z]`
+- `minecraft:stripped_spruce_log[axis=x]`
+- `minecraft:stripped_spruce_log[axis=y]`
+- `minecraft:stripped_spruce_log[axis=z]`
+- `minecraft:spruce_wood[axis=x]`
+- `minecraft:spruce_wood[axis=y]`
+- `minecraft:spruce_wood[axis=z]`
+- `minecraft:stripped_spruce_wood[axis=x]`
+- `minecraft:stripped_spruce_wood[axis=y]`
+- `minecraft:stripped_spruce_wood[axis=z]`
+- `minecraft:birch_planks`
+- `minecraft:birch_log[axis=x]`
+- `minecraft:birch_log[axis=y]`
+- `minecraft:birch_log[axis=z]`
+- `minecraft:stripped_birch_log[axis=x]`
+- `minecraft:stripped_birch_log[axis=y]`
+- `minecraft:stripped_birch_log[axis=z]`
+- `minecraft:birch_wood[axis=x]`
+- `minecraft:birch_wood[axis=y]`
+- `minecraft:birch_wood[axis=z]`
+- `minecraft:stripped_birch_wood[axis=x]`
+- `minecraft:stripped_birch_wood[axis=y]`
+- `minecraft:stripped_birch_wood[axis=z]`
+- `minecraft:jungle_planks`
+- `minecraft:jungle_log[axis=x]`
+- `minecraft:jungle_log[axis=y]`
+- `minecraft:jungle_log[axis=z]`
+- `minecraft:stripped_jungle_log[axis=x]`
+- `minecraft:stripped_jungle_log[axis=y]`
+- `minecraft:stripped_jungle_log[axis=z]`
+- `minecraft:jungle_wood[axis=x]`
+- `minecraft:jungle_wood[axis=y]`
+- `minecraft:jungle_wood[axis=z]`
+- `minecraft:stripped_jungle_wood[axis=x]`
+- `minecraft:stripped_jungle_wood[axis=y]`
+- `minecraft:stripped_jungle_wood[axis=z]`
+- `minecraft:acacia_planks`
+- `minecraft:acacia_log[axis=x]`
+- `minecraft:acacia_log[axis=y]`
+- `minecraft:acacia_log[axis=z]`
+- `minecraft:stripped_acacia_log[axis=x]`
+- `minecraft:stripped_acacia_log[axis=y]`
+- `minecraft:stripped_acacia_log[axis=z]`
+- `minecraft:acacia_wood[axis=x]`
+- `minecraft:acacia_wood[axis=y]`
+- `minecraft:acacia_wood[axis=z]`
+- `minecraft:stripped_acacia_wood[axis=x]`
+- `minecraft:stripped_acacia_wood[axis=y]`
+- `minecraft:stripped_acacia_wood[axis=z]`
+- `minecraft:dark_oak_planks`
+- `minecraft:dark_oak_log[axis=x]`
+- `minecraft:dark_oak_log[axis=y]`
+- `minecraft:dark_oak_log[axis=z]`
+- `minecraft:stripped_dark_oak_log[axis=x]`
+- `minecraft:stripped_dark_oak_log[axis=y]`
+- `minecraft:stripped_dark_oak_log[axis=z]`
+- `minecraft:dark_oak_wood[axis=x]`
+- `minecraft:dark_oak_wood[axis=y]`
+- `minecraft:dark_oak_wood[axis=z]`
+- `minecraft:stripped_dark_oak_wood[axis=x]`
+- `minecraft:stripped_dark_oak_wood[axis=y]`
+- `minecraft:stripped_dark_oak_wood[axis=z]`
+- `minecraft:mangrove_planks`
+- `minecraft:mangrove_log[axis=x]`
+- `minecraft:mangrove_log[axis=y]`
+- `minecraft:mangrove_log[axis=z]`
+- `minecraft:stripped_mangrove_log[axis=x]`
+- `minecraft:stripped_mangrove_log[axis=y]`
+- `minecraft:stripped_mangrove_log[axis=z]`
+- `minecraft:mangrove_wood[axis=x]`
+- `minecraft:mangrove_wood[axis=y]`
+- `minecraft:mangrove_wood[axis=z]`
+- `minecraft:stripped_mangrove_wood[axis=x]`
+- `minecraft:stripped_mangrove_wood[axis=y]`
+- `minecraft:stripped_mangrove_wood[axis=z]`
+- `minecraft:cherry_planks`
+- `minecraft:cherry_log[axis=x]`
+- `minecraft:cherry_log[axis=y]`
+- `minecraft:cherry_log[axis=z]`
+- `minecraft:stripped_cherry_log[axis=x]`
+- `minecraft:stripped_cherry_log[axis=y]`
+- `minecraft:stripped_cherry_log[axis=z]`
+- `minecraft:cherry_wood[axis=x]`
+- `minecraft:cherry_wood[axis=y]`
+- `minecraft:cherry_wood[axis=z]`
+- `minecraft:stripped_cherry_wood[axis=x]`
+- `minecraft:stripped_cherry_wood[axis=y]`
+- `minecraft:stripped_cherry_wood[axis=z]`
+- `minecraft:pale_oak_planks`
+- `minecraft:pale_oak_log[axis=x]`
+- `minecraft:pale_oak_log[axis=y]`
+- `minecraft:pale_oak_log[axis=z]`
+- `minecraft:stripped_pale_oak_log[axis=x]`
+- `minecraft:stripped_pale_oak_log[axis=y]`
+- `minecraft:stripped_pale_oak_log[axis=z]`
+- `minecraft:pale_oak_wood[axis=x]`
+- `minecraft:pale_oak_wood[axis=y]`
+- `minecraft:pale_oak_wood[axis=z]`
+- `minecraft:stripped_pale_oak_wood[axis=x]`
+- `minecraft:stripped_pale_oak_wood[axis=y]`
+- `minecraft:stripped_pale_oak_wood[axis=z]`
+- `minecraft:bamboo_planks`
+- `minecraft:bamboo_mosaic`
+- `minecraft:bamboo_block[axis=x]`
+- `minecraft:bamboo_block[axis=y]`
+- `minecraft:bamboo_block[axis=z]`
+- `minecraft:stripped_bamboo_block[axis=x]`
+- `minecraft:stripped_bamboo_block[axis=y]`
+- `minecraft:stripped_bamboo_block[axis=z]`
+- `minecraft:crimson_planks`
+- `minecraft:warped_planks`
+- `minecraft:white_concrete`
+- `minecraft:white_terracotta`
+- `minecraft:white_wool`
+- `minecraft:orange_concrete`
+- `minecraft:orange_terracotta`
+- `minecraft:orange_wool`
+- `minecraft:magenta_concrete`
+- `minecraft:magenta_terracotta`
+- `minecraft:magenta_wool`
+- `minecraft:light_blue_concrete`
+- `minecraft:light_blue_terracotta`
+- `minecraft:light_blue_wool`
+- `minecraft:yellow_concrete`
+- `minecraft:yellow_terracotta`
+- `minecraft:yellow_wool`
+- `minecraft:lime_concrete`
+- `minecraft:lime_terracotta`
+- `minecraft:lime_wool`
+- `minecraft:pink_concrete`
+- `minecraft:pink_terracotta`
+- `minecraft:pink_wool`
+- `minecraft:gray_concrete`
+- `minecraft:gray_terracotta`
+- `minecraft:gray_wool`
+- `minecraft:light_gray_concrete`
+- `minecraft:light_gray_terracotta`
+- `minecraft:light_gray_wool`
+- `minecraft:cyan_concrete`
+- `minecraft:cyan_terracotta`
+- `minecraft:cyan_wool`
+- `minecraft:purple_concrete`
+- `minecraft:purple_terracotta`
+- `minecraft:purple_wool`
+- `minecraft:blue_concrete`
+- `minecraft:blue_terracotta`
+- `minecraft:blue_wool`
+- `minecraft:brown_concrete`
+- `minecraft:brown_terracotta`
+- `minecraft:brown_wool`
+- `minecraft:green_concrete`
+- `minecraft:green_terracotta`
+- `minecraft:green_wool`
+- `minecraft:red_concrete`
+- `minecraft:red_terracotta`
+- `minecraft:red_wool`
+- `minecraft:black_concrete`
+- `minecraft:black_terracotta`
+- `minecraft:black_wool`
+- `minecraft:coal_ore`
+- `minecraft:deepslate_coal_ore`
+- `minecraft:iron_ore`
+- `minecraft:deepslate_iron_ore`
+- `minecraft:copper_ore`
+- `minecraft:deepslate_copper_ore`
+- `minecraft:gold_ore`
+- `minecraft:deepslate_gold_ore`
+- `minecraft:redstone_ore`
+- `minecraft:deepslate_redstone_ore`
+- `minecraft:emerald_ore`
+- `minecraft:deepslate_emerald_ore`
+- `minecraft:lapis_ore`
+- `minecraft:deepslate_lapis_ore`
+- `minecraft:diamond_ore`
+- `minecraft:deepslate_diamond_ore`
+- `minecraft:nether_gold_ore`
+- `minecraft:nether_quartz_ore`
+- `minecraft:ancient_debris`
+- `minecraft:coal_block`
+- `minecraft:iron_block`
+- `minecraft:gold_block`
+- `minecraft:emerald_block`
+- `minecraft:lapis_block`
+- `minecraft:diamond_block`
+- `minecraft:netherite_block`
+- `minecraft:raw_iron_block`
+- `minecraft:raw_copper_block`
+- `minecraft:raw_gold_block`
+- `minecraft:gilded_blackstone`
+- `minecraft:dirt`
+- `minecraft:coarse_dirt`
+- `minecraft:rooted_dirt`
+- `minecraft:gravel`
+- `minecraft:sand`
+- `minecraft:red_sand`
+- `minecraft:clay`
+- `minecraft:mud`
+- `minecraft:snow_block`
+- `minecraft:bone_block[axis=x]`
+- `minecraft:bone_block[axis=y]`
+- `minecraft:bone_block[axis=z]`
+- `minecraft:dried_kelp_block`
+- `minecraft:hay_block[axis=x]`
+- `minecraft:hay_block[axis=y]`
+- `minecraft:hay_block[axis=z]`
+- `minecraft:sponge`
+- `minecraft:wet_sponge`
+- `minecraft:honeycomb_block`
+- `minecraft:melon`
+- `minecraft:bookshelf`
+- `minecraft:copper_block`
+- `minecraft:waxed_copper_block`
+- `minecraft:cut_copper`
+- `minecraft:waxed_cut_copper`
+- `minecraft:chiseled_copper`
+- `minecraft:waxed_chiseled_copper`
+- `minecraft:exposed_copper`
+- `minecraft:waxed_exposed_copper`
+- `minecraft:exposed_cut_copper`
+- `minecraft:waxed_exposed_cut_copper`
+- `minecraft:exposed_chiseled_copper`
+- `minecraft:waxed_exposed_chiseled_copper`
+- `minecraft:weathered_copper`
+- `minecraft:waxed_weathered_copper`
+- `minecraft:weathered_cut_copper`
+- `minecraft:waxed_weathered_cut_copper`
+- `minecraft:weathered_chiseled_copper`
+- `minecraft:waxed_weathered_chiseled_copper`
+- `minecraft:oxidized_copper`
+- `minecraft:waxed_oxidized_copper`
+- `minecraft:oxidized_cut_copper`
+- `minecraft:waxed_oxidized_cut_copper`
+- `minecraft:oxidized_chiseled_copper`
+- `minecraft:waxed_oxidized_chiseled_copper`
+- `minecraft:amethyst_block`
+- `minecraft:azalea_leaves` — transparent/cutout
+- `minecraft:bedrock`
+- `minecraft:black_concrete_powder`
+- `minecraft:black_stained_glass` — transparent/cutout
+- `minecraft:blue_concrete_powder`
+- `minecraft:blue_ice`
+- `minecraft:blue_stained_glass` — transparent/cutout
+- `minecraft:brain_coral_block`
+- `minecraft:brown_concrete_powder`
+- `minecraft:brown_stained_glass` — transparent/cutout
+- `minecraft:bubble_coral_block`
+- `minecraft:budding_amethyst`
+- `minecraft:cartography_table`
+- `minecraft:chiseled_cinnabar`
+- `minecraft:chiseled_resin_bricks`
+- `minecraft:chiseled_sulfur`
+- `minecraft:cinnabar`
+- `minecraft:cinnabar_bricks`
+- `minecraft:copper_grate` — transparent/cutout
+- `minecraft:crafting_table`
+- `minecraft:crimson_hyphae[axis=x]` — animated texture
+- `minecraft:crimson_hyphae[axis=y]` — animated texture
+- `minecraft:crimson_hyphae[axis=z]` — animated texture
+- `minecraft:crimson_nylium`
+- `minecraft:crimson_stem[axis=x]` — animated texture
+- `minecraft:crimson_stem[axis=y]` — animated texture
+- `minecraft:crimson_stem[axis=z]` — animated texture
+- `minecraft:crying_obsidian`
+- `minecraft:cyan_concrete_powder`
+- `minecraft:cyan_stained_glass` — transparent/cutout
+- `minecraft:dead_brain_coral_block`
+- `minecraft:dead_bubble_coral_block`
+- `minecraft:dead_fire_coral_block`
+- `minecraft:dead_horn_coral_block`
+- `minecraft:dead_tube_coral_block`
+- `minecraft:dripstone_block`
+- `minecraft:exposed_copper_grate` — transparent/cutout
+- `minecraft:fire_coral_block`
+- `minecraft:fletching_table`
+- `minecraft:flowering_azalea_leaves` — transparent/cutout
+- `minecraft:glass` — transparent/cutout
+- `minecraft:glowstone`
+- `minecraft:gray_concrete_powder`
+- `minecraft:gray_stained_glass` — transparent/cutout
+- `minecraft:green_concrete_powder`
+- `minecraft:green_stained_glass` — transparent/cutout
+- `minecraft:horn_coral_block`
+- `minecraft:ice` — transparent/cutout
+- `minecraft:infested_chiseled_stone_bricks`
+- `minecraft:infested_cobblestone`
+- `minecraft:infested_cracked_stone_bricks`
+- `minecraft:infested_deepslate[axis=x]`
+- `minecraft:infested_deepslate[axis=y]`
+- `minecraft:infested_deepslate[axis=z]`
+- `minecraft:infested_mossy_stone_bricks`
+- `minecraft:infested_stone`
+- `minecraft:infested_stone_bricks`
+- `minecraft:light_blue_concrete_powder`
+- `minecraft:light_blue_stained_glass` — transparent/cutout
+- `minecraft:light_gray_concrete_powder`
+- `minecraft:light_gray_stained_glass` — transparent/cutout
+- `minecraft:lime_concrete_powder`
+- `minecraft:lime_stained_glass` — transparent/cutout
+- `minecraft:lodestone`
+- `minecraft:magenta_concrete_powder`
+- `minecraft:magenta_stained_glass` — transparent/cutout
+- `minecraft:magma_block` — animated texture
+- `minecraft:moss_block`
+- `minecraft:muddy_mangrove_roots[axis=x]`
+- `minecraft:muddy_mangrove_roots[axis=y]`
+- `minecraft:muddy_mangrove_roots[axis=z]`
+- `minecraft:nether_wart_block`
+- `minecraft:note_block`
+- `minecraft:ochre_froglight[axis=x]`
+- `minecraft:ochre_froglight[axis=y]`
+- `minecraft:ochre_froglight[axis=z]`
+- `minecraft:orange_concrete_powder`
+- `minecraft:orange_stained_glass` — transparent/cutout
+- `minecraft:oxidized_copper_grate` — transparent/cutout
+- `minecraft:packed_ice`
+- `minecraft:pale_moss_block`
+- `minecraft:pearlescent_froglight[axis=x]`
+- `minecraft:pearlescent_froglight[axis=y]`
+- `minecraft:pearlescent_froglight[axis=z]`
+- `minecraft:pink_concrete_powder`
+- `minecraft:pink_stained_glass` — transparent/cutout
+- `minecraft:polished_cinnabar`
+- `minecraft:polished_sulfur`
+- `minecraft:prismarine` — animated texture
+- `minecraft:pumpkin`
+- `minecraft:purple_concrete_powder`
+- `minecraft:purple_stained_glass` — transparent/cutout
+- `minecraft:red_concrete_powder`
+- `minecraft:red_stained_glass` — transparent/cutout
+- `minecraft:redstone_block`
+- `minecraft:reinforced_deepslate`
+- `minecraft:resin_block`
+- `minecraft:resin_bricks`
+- `minecraft:sculk` — animated texture
+- `minecraft:sea_lantern` — animated texture
+- `minecraft:shroomlight`
+- `minecraft:smithing_table`
+- `minecraft:soul_sand`
+- `minecraft:soul_soil`
+- `minecraft:stripped_crimson_hyphae[axis=x]`
+- `minecraft:stripped_crimson_hyphae[axis=y]`
+- `minecraft:stripped_crimson_hyphae[axis=z]`
+- `minecraft:stripped_crimson_stem[axis=x]`
+- `minecraft:stripped_crimson_stem[axis=y]`
+- `minecraft:stripped_crimson_stem[axis=z]`
+- `minecraft:stripped_warped_hyphae[axis=x]`
+- `minecraft:stripped_warped_hyphae[axis=y]`
+- `minecraft:stripped_warped_hyphae[axis=z]`
+- `minecraft:stripped_warped_stem[axis=x]`
+- `minecraft:stripped_warped_stem[axis=y]`
+- `minecraft:stripped_warped_stem[axis=z]`
+- `minecraft:sulfur`
+- `minecraft:sulfur_bricks`
+- `minecraft:target`
+- `minecraft:tinted_glass` — transparent/cutout
+- `minecraft:tnt`
+- `minecraft:tube_coral_block`
+- `minecraft:verdant_froglight[axis=x]`
+- `minecraft:verdant_froglight[axis=y]`
+- `minecraft:verdant_froglight[axis=z]`
+- `minecraft:warped_hyphae[axis=x]` — animated texture
+- `minecraft:warped_hyphae[axis=y]` — animated texture
+- `minecraft:warped_hyphae[axis=z]` — animated texture
+- `minecraft:warped_nylium`
+- `minecraft:warped_stem[axis=x]` — animated texture
+- `minecraft:warped_stem[axis=y]` — animated texture
+- `minecraft:warped_stem[axis=z]` — animated texture
+- `minecraft:warped_wart_block`
+- `minecraft:waxed_copper_grate` — transparent/cutout
+- `minecraft:waxed_exposed_copper_grate` — transparent/cutout
+- `minecraft:waxed_oxidized_copper_grate` — transparent/cutout
+- `minecraft:waxed_weathered_copper_grate` — transparent/cutout
+- `minecraft:weathered_copper_grate` — transparent/cutout
+- `minecraft:white_concrete_powder`
+- `minecraft:white_stained_glass` — transparent/cutout
+- `minecraft:yellow_concrete_powder`
+- `minecraft:yellow_stained_glass` — transparent/cutout

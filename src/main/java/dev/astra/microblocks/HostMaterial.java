@@ -15,14 +15,19 @@ public final class HostMaterial {
     private static final Map<String,HostMaterial> CATALOG=load();
     public static final HostMaterial STONE=CATALOG.get("minecraft:stone"), OAK_PLANKS=CATALOG.get("minecraft:oak_planks");
     private final String id;
+    private final boolean transparent, animated;
     private final int rotationX,rotationY;
+    private final Map<Direction,Boolean> translucent=new EnumMap<>(Direction.class);
     private final Map<Direction,Identifier> textures=new EnumMap<>(Direction.class);
     private final Map<Direction,Integer> rotations=new EnumMap<>(Direction.class);
     private final Map<Direction,float[]> bounds=new EnumMap<>(Direction.class);
     private HostMaterial(JsonObject data) {
+        transparent=data.has("transparent") && data.get("transparent").getAsBoolean();
+        animated=data.has("animated") && data.get("animated").getAsBoolean();
         id=data.get("id").getAsString(); rotationX=data.get("x").getAsInt(); rotationY=data.get("y").getAsInt();
         for(var face:Direction.values()) {
             var value=data.getAsJsonObject("faces").getAsJsonObject(face.getName());
+            translucent.put(face,value.has("force_translucent") && value.get("force_translucent").getAsBoolean());
             textures.put(face,Identifier.parse(value.get("texture").getAsString()));
             rotations.put(face,value.get("rotation").getAsInt());
             var uv=value.getAsJsonArray("uv");bounds.put(face,new float[]{uv.get(0).getAsFloat()/16,uv.get(1).getAsFloat()/16,uv.get(2).getAsFloat()/16,uv.get(3).getAsFloat()/16});
@@ -43,6 +48,8 @@ public final class HostMaterial {
     public static List<HostMaterial> catalog() {return List.copyOf(CATALOG.values());}
     public static Optional<HostMaterial> find(String id) {return Optional.ofNullable(CATALOG.get(id.startsWith("minecraft:")?id:"minecraft:"+id));}
     public String id() {return id;}
+    public boolean transparent() {return transparent;}
+    public boolean animated() {return animated;}
     public String blockId() {return id.contains("[")?id.substring(0,id.indexOf('[')):id;}
     public String label() {
         String text=id.substring("minecraft:".length()).replace("[axis="," (").replace("]",")").replace('_',' ');
@@ -74,6 +81,7 @@ public final class HostMaterial {
         for(var candidate:Direction.values()) if(candidate.getStepX()==v[0] && candidate.getStepY()==v[1] && candidate.getStepZ()==v[2]) return candidate;
         throw new IllegalStateException("Invalid material rotation");
     }
+    public boolean forceTranslucent(Direction face) {return translucent.get(sourceFace(face));}
     public Identifier texture() {return texture(Direction.NORTH);}
     public Identifier texture(Direction face) {return textures.get(sourceFace(face));}
     /** Unrotated vanilla cube UV projection, transformed with the block-state model. */

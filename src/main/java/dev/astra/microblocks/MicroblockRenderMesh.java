@@ -6,11 +6,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Converts MicroblockGrid occupancy into visible render faces.
+ * Converts occupancy and material opacity into visible render faces.
  *
  * Unlike collision meshing, rendering only needs surfaces that
- * are exposed to air. Faces between two occupied neighboring
- * cells are deliberately omitted.
+ * are exposed to air or to a different transparent neighbor. The grid-only
+ * reference path retains the opaque occupancy rule.
  *
  * Coordinates use microblock boundaries from 0..16.
  */
@@ -88,7 +88,7 @@ public final class MicroblockRenderMesh {
                 var material=volume.materialAt(x,y,z);
                 if(material==null) continue;
                 int nx=x+direction.getStepX(),ny=y+direction.getStepY(),nz=z+direction.getStepZ();
-                if(nx<0 || nx>=16 || ny<0 || ny>=16 || nz<0 || nz>=16 || volume.materialAt(nx,ny,nz)==null)
+                if(nx<0 || nx>=16 || ny<0 || ny>=16 || nz<0 || nz>=16 || exposesFace(material,volume.materialAt(nx,ny,nz)))
                     mask[v*16+u]=material;
             }
             for(int v=0;v<16;v++) for(int u=0;u<16;u++) {
@@ -107,6 +107,11 @@ public final class MicroblockRenderMesh {
             }
         }
         return List.copyOf(result);
+    }
+
+    /** Transparent neighbors cannot hide a different material behind them. */
+    public static boolean exposesFace(HostMaterial material, HostMaterial neighbor) {
+        return neighbor == null || (neighbor.transparent() && neighbor != material);
     }
 
     /**

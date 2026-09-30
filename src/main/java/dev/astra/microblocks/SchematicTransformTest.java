@@ -18,6 +18,9 @@ public final class SchematicTransformTest {
         for(int y=2;y<14;y++) v.add(4,y,8,HostMaterial.find("bone_block[axis=z]").orElseThrow());
         v.add(0,0,0,HostMaterial.find("gold_block").orElseThrow());
         v.add(15,15,14,HostMaterial.find("diamond_block").orElseThrow());
+        v.add(8,8,8,HostMaterial.find("blue_stained_glass").orElseThrow());
+        v.add(8,9,8,HostMaterial.find("crimson_stem[axis=x]").orElseThrow());
+        v.add(8,10,8,HostMaterial.find("sea_lantern").orElseThrow());
         return v;
     }
     /** Independent coordinate oracle using Minecraft's integer structure transform. */
