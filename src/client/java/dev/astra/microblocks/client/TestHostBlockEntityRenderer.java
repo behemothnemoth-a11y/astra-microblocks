@@ -99,7 +99,8 @@ public final class TestHostBlockEntityRenderer
             }
             var sprite=sprites.get(new SpriteId(TextureAtlas.LOCATION_BLOCKS,material.texture(face.direction())));
             emitter.materialBake(new Material.Baked(sprite,material.forceTranslucent(face.direction())),MutableQuadView.BAKE_NORMALIZED);
-            emitter.color(-1,-1,-1,-1);
+            int color=material.argb();
+            emitter.color(color,color,color,color);
             emitter.emit();
         }
         return mesh.immutableCopy();

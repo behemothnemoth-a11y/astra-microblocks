@@ -43,6 +43,7 @@ public final class ClientRenderTest {
     }
 
     private static void run(Minecraft client) {
+        verifyColors(client);
         verifyNewMaterials(client);
         verifyChiselItem(client);
         ChiselWheelTest.run(client);
@@ -131,6 +132,30 @@ public final class ClientRenderTest {
         require(TestHostBlockEntityRenderer.buildMesh(empty, sprite).size() == 0, "empty grid rendered surfaces");
     }
 
+    private static void verifyColors(Minecraft client) {
+        var sprites=(net.minecraft.client.resources.model.sprite.SpriteGetter)client.getAtlasManager()::get;
+        for(int color:new int[]{0,0xffffff,0x123456,0xff0080}) {
+            var material=dev.astra.microblocks.HostMaterial.color(color);
+            var sprite=sprites.get(new SpriteId(TextureAtlas.LOCATION_BLOCKS,material.texture()));
+            require(sprite.contents().name().equals(material.texture()),"flat RGB sprite missing");
+            var mesh=TestHostBlockEntityRenderer.buildVolumeMesh(new dev.astra.microblocks.MicroblockVolume(material),sprites);
+            require(mesh.size()==6,"uniform RGB block not merged");
+            mesh.forEach(quad -> {for(int corner=0;corner<4;corner++) require(quad.color(corner)==(0xff000000|color),"RGB vertex tint changed");});
+        }
+        for(var size:new int[][]{{320,240},{640,360}}) {
+            var commands=new java.util.ArrayList<String>();
+            var screen=new ColorScreen(null,commands::add,0x123456);screen.init(size[0],size[1]);
+            for(var child:screen.children()) {var widget=(net.minecraft.client.gui.components.AbstractWidget)child;
+                require(widget.getX()>=0 && widget.getY()>=0 && widget.getRight()<=size[0] && widget.getBottom()<=size[1],"color controls outside screen");}
+            screen.setHex("#FF0080");require(screen.color()==0xff0080 && commands.isEmpty(),"picker preview sent server edits");
+            screen.applyColor();require(commands.equals(java.util.List.of("astra material astra_microblocks:rgb_ff0080")),"picker apply command");
+            screen.setHex("#invalid");screen.applyColor();require(commands.size()==1,"invalid RGB applied");
+            screen.setHex("000000");screen.applyColor();require(commands.getLast().endsWith("rgb_000000"),"black RGB invalid");
+            screen.init(size[0],size[1]);require(screen.children().size()==7,"picker controls duplicated");
+        }
+        System.out.println("ASTRA_TEST: RGB_CLIENT_PASS");
+    }
+
     private static void verifyNewMaterials(Minecraft client) {
         var host=new TestHostBlockEntity(BlockPos.ZERO,AstraMicroblocks.TEST_HOST.defaultBlockState());
         var renderer=(TestHostBlockEntityRenderer)client.getBlockEntityRenderDispatcher()
@@ -204,7 +229,7 @@ public final class ClientRenderTest {
             var commands=new java.util.ArrayList<String>();
             var screen=new MaterialScreen(commands::add,java.util.List.of(dev.astra.microblocks.HostMaterial.find("bricks").orElseThrow()));
             screen.init(size[0],size[1]);screen.query("blue concrete");
-            require(screen.children().size()==16,"material screen duplicate controls");
+            require(screen.children().size()==17,"material screen duplicate controls");
             var graphics=new net.minecraft.client.gui.GuiGraphicsExtractor(client,new net.minecraft.client.renderer.state.gui.GuiRenderState(),0,0);
             screen.extractRenderState(graphics,0,0,0);
             for(var child:screen.children()) {
@@ -220,7 +245,7 @@ public final class ClientRenderTest {
             pressMaterialButton(screen,"Bricks");require(commands.getLast().equals("astra material minecraft:bricks"),"recent material selection failed");
             pressMaterialButton(screen,"All blocks");pressMaterialButton(screen,">");pressMaterialButton(screen,"<");
             screen.query("no_such_material");screen.extractRenderState(graphics,0,0,0);
-            screen.init(size[0],size[1]);require(screen.children().size()==16,"material resize duplicated controls");
+            screen.init(size[0],size[1]);require(screen.children().size()==17,"material resize duplicated controls");
             require(!screen.isPauseScreen(),"material screen pauses game");
         }
         System.out.println("ASTRA_TEST: PALETTE_CLIENT_PASS");

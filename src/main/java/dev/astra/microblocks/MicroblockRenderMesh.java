@@ -94,9 +94,9 @@ public final class MicroblockRenderMesh {
             for(int v=0;v<16;v++) for(int u=0;u<16;u++) {
                 var material=mask[v*16+u]; if(material==null) continue;
                 int width=1,height=1;
-                while(u+width<16 && mask[v*16+u+width]==material) width++;
+                while(u+width<16 && material.equals(mask[v*16+u+width])) width++;
                 outer: while(v+height<16) {
-                    for(int k=0;k<width;k++) if(mask[(v+height)*16+u+k]!=material) break outer;
+                    for(int k=0;k<width;k++) if(!material.equals(mask[(v+height)*16+u+k])) break outer;
                     height++;
                 }
                 int x=direction.getAxis()==Direction.Axis.X?slice:u;
@@ -111,7 +111,7 @@ public final class MicroblockRenderMesh {
 
     /** Transparent neighbors cannot hide a different material behind them. */
     public static boolean exposesFace(HostMaterial material, HostMaterial neighbor) {
-        return neighbor == null || (neighbor.transparent() && neighbor != material);
+        return neighbor == null || (neighbor.transparent() && !neighbor.equals(material));
     }
 
     /**

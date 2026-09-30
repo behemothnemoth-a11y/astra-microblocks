@@ -47,10 +47,10 @@ public final class MicroblockVolume {
     }
     public boolean replace(int x,int y,int z,HostMaterial material) {
         Objects.requireNonNull(material);int index=MicroblockGrid.index(x,y,z);
-        if(cells[index]==null || cells[index]==material) return false;cells[index]=material;return true;
+        if(cells[index]==null || material.equals(cells[index])) return false;cells[index]=material;return true;
     }
     public int occupiedCount() {return occupied.occupiedCount();}
-    public int count(HostMaterial material) {int count=0;for(var cell:cells) if(cell==material) count++;return count;}
+    public int count(HostMaterial material) {int count=0;for(var cell:cells) if(Objects.equals(cell,material)) count++;return count;}
     public Map<HostMaterial,Integer> materials() {
         var counts=new LinkedHashMap<HostMaterial,Integer>();for(var cell:cells) if(cell!=null) counts.merge(cell,1,Integer::sum);return Collections.unmodifiableMap(counts);
     }
@@ -58,6 +58,6 @@ public final class MicroblockVolume {
             && Arrays.stream(cells).allMatch(m -> m==null || m==HostMaterial.STONE || m==HostMaterial.OAK_PLANKS);}
     public boolean isFull() {return occupied.isFull();}
     public boolean isEmpty() {return occupied.isEmpty();}
-    @Override public boolean equals(Object other) {return other instanceof MicroblockVolume v && original==v.original && Arrays.equals(cells,v.cells);}
+    @Override public boolean equals(Object other) {return other instanceof MicroblockVolume v && original.equals(v.original) && Arrays.equals(cells,v.cells);}
     @Override public int hashCode() {return 31*Arrays.hashCode(cells)+original.hashCode();}
 }

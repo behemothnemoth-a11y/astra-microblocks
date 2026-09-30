@@ -21,6 +21,7 @@ public final class SchematicTransformTest {
         v.add(8,8,8,HostMaterial.find("blue_stained_glass").orElseThrow());
         v.add(8,9,8,HostMaterial.find("crimson_stem[axis=x]").orElseThrow());
         v.add(8,10,8,HostMaterial.find("sea_lantern").orElseThrow());
+        v.add(12,12,12,HostMaterial.color(0x01fea3));
         return v;
     }
     /** Independent coordinate oracle using Minecraft's integer structure transform. */

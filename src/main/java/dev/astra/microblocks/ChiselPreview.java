@@ -27,7 +27,7 @@ public record ChiselPreview(int occupied, int affected, List<MicroblockMesher.Cu
         if (cell == null) return new ChiselPreview(volume.occupiedCount(),0,List.of());
         var selected=mode.selection(cell,face);
         for (int y=0;y<16;y++) for (int z=0;z<16;z++) for (int x=0;x<16;x++)
-            if (!volume.isOccupied(x,y,z) || volume.materialAt(x,y,z)==material) selected.remove(x,y,z);
+            if (!volume.isOccupied(x,y,z) || material.equals(volume.materialAt(x,y,z))) selected.remove(x,y,z);
         return new ChiselPreview(volume.occupiedCount(),selected.occupiedCount(),MicroblockMesher.mesh(selected));
     }
 }

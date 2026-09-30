@@ -22,7 +22,7 @@ public enum ChiselMaterial {
         return ORIGINAL;
     }
     public static boolean custom(ItemStack tool) {return selected(tool).isPresent();}
-    private static java.util.Optional<HostMaterial> selected(ItemStack tool) {
+    public static java.util.Optional<HostMaterial> selected(ItemStack tool) {
         return HostMaterial.find(tool.getOrDefault(DataComponents.CUSTOM_DATA,CustomData.EMPTY).copyTag().getStringOr("astra_material_state",""));
     }
     public static HostMaterial resolve(ItemStack tool,TestHostBlockEntity host) {

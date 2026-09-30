@@ -132,6 +132,7 @@ ServerLevel level =
         WorkflowTest.phaseZero(level);
         SculptureTest.phaseZero(level);
         PaletteTest.phaseZero(level);
+        ColorMaterialTest.phaseZero(level);
         SchematicTransformTest.phaseZero(level);
         require(
                 level.setBlock(
@@ -379,6 +380,7 @@ ServerLevel level =
         WorkflowTest.phaseOne(level);
         SculptureTest.phaseOne(level);
         PaletteTest.phaseOne(level);
+        ColorMaterialTest.persisted(level,false);
         SchematicTransformTest.verifySaved(level,"SCHEMATIC_PERSISTENCE_PASS");
         writePhase(2);
 
@@ -448,6 +450,7 @@ ServerLevel level =
         WorkflowTest.phaseTwo(level);
         SculptureTest.phaseTwo(level);
         PaletteTest.phaseTwo(level);
+        ColorMaterialTest.persisted(level,true);
         SchematicTransformTest.verifySaved(level,"SCHEMATIC_RESTART_PASS");
         writePhase(3);
 

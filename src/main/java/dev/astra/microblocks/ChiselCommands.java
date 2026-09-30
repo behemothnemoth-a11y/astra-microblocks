@@ -38,8 +38,20 @@ public final class ChiselCommands {
         return true;
     }
 
+    public static boolean giveColorBlock(Player player,String hex) {
+        if(player.level().isClientSide() || !player.isCreative() || !player.getMainHandItem().is(AstraMicroblocks.ASTRA_CHISEL)) return false;
+        var material=HostMaterial.find("astra_microblocks:rgb_"+hex);
+        if(material.isEmpty()) return false;
+        var stack=SculptureData.item(new MicroblockVolume(material.get()));
+        if(!player.getInventory().add(stack)) player.drop(stack,false);
+        player.sendOverlayMessage(Component.literal(material.get().label()+" block added to inventory"));return true;
+    }
+
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registries, environment) -> {
+            dispatcher.register(Commands.literal("astra").then(Commands.literal("colorblock")
+                .then(Commands.argument("hex",com.mojang.brigadier.arguments.StringArgumentType.word()).executes(context ->
+                    giveColorBlock(context.getSource().getPlayerOrException(),com.mojang.brigadier.arguments.StringArgumentType.getString(context,"hex"))?1:0))));
             var modes = Commands.literal("mode");
             for (ChiselMode mode : ChiselMode.values()) {
                 modes.then(Commands.literal(mode.id()).executes(context -> {

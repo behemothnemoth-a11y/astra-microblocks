@@ -33,6 +33,7 @@ final class MaterialRenderCapture {
                 client.getSingleplayerServer().submit(()-> {
                     var server=client.getSingleplayerServer();var level=server.overworld();
                     String[] ids={"glass","blue_stained_glass","tinted_glass","copper_grate","magma_block","sea_lantern","prismarine","crimson_stem[axis=y]"};
+                    if(Boolean.getBoolean("astra.rgbScreenshot")) ids=new String[]{"astra_microblocks:rgb_ff0080","astra_microblocks:rgb_00ff80","astra_microblocks:rgb_0080ff","astra_microblocks:rgb_ff8000","astra_microblocks:rgb_000000","astra_microblocks:rgb_ffffff","glass","sea_lantern"};
                     for(int x=-2;x<26;x++) for(int z=-2;z<9;z++) level.setBlock(new BlockPos(x,99,z),Blocks.SMOOTH_QUARTZ.defaultBlockState(),3);
                     for(int i=0;i<ids.length;i++) for(int x=0;x<2;x++) for(int y=0;y<3;y++) {
                         var pos=new BlockPos(i*3+x,100+y,2);

@@ -20,10 +20,10 @@ public final class VolumePalette {
         if(tag.getIntOr("version",0)!=2) return Optional.empty();
         int size=tag.getIntOr("size",-1); if(size<0 || size>4096) return Optional.empty();
         var original=HostMaterial.find(tag.getStringOr("original","")); if(original.isEmpty()) return Optional.empty();
-        var palette=new ArrayList<HostMaterial>();
+        var palette=new ArrayList<HostMaterial>();var seen=new HashSet<HostMaterial>();
         for(int i=0;i<size;i++) {
             var material=HostMaterial.find(tag.getStringOr("material_"+i,""));
-            if(material.isEmpty() || palette.contains(material.get())) return Optional.empty();palette.add(material.get());
+            if(material.isEmpty() || !seen.add(material.get())) return Optional.empty();palette.add(material.get());
         }
         int bits=tag.getIntOr("bits",0);if(bits!=Math.max(1,32-Integer.numberOfLeadingZeros(size))) return Optional.empty();
         int stride=64/bits;long[] indices=tag.getLongArray("cells").orElse(new long[0]);if(indices.length!=(4096+stride-1)/stride) return Optional.empty();

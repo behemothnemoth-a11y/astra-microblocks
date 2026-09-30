@@ -146,7 +146,7 @@ public final class MicroblockRenderMeshTest {
             for(var direction:Direction.values()) {
                 int nx=x+direction.getStepX(),ny=y+direction.getStepY(),nz=z+direction.getStepZ();
                 var neighbor=nx<0||nx>=16||ny<0||ny>=16||nz<0||nz>=16?null:volume.materialAt(nx,ny,nz);
-                if(neighbor==null || (neighbor!=material && neighbor.transparent()))
+                if(neighbor==null || (!neighbor.equals(material) && neighbor.transparent()))
                     expected.add(new MicroblockRenderMesh.Face(x,y,z,direction));
             }
         }
@@ -159,7 +159,7 @@ public final class MicroblockRenderMeshTest {
                 int x=q.x()+(q.direction().getAxis()==Direction.Axis.X?0:u);
                 int y=q.y()+(q.direction().getAxis()==Direction.Axis.Y?0:v);
                 int z=q.z()+(q.direction().getAxis()==Direction.Axis.Z?0:q.direction().getAxis()==Direction.Axis.X?u:v);
-                require(volume.materialAt(x,y,z)==material,"greedy rectangle crossed materials");
+                require(material.equals(volume.materialAt(x,y,z)),"greedy rectangle crossed materials");
                 require(actual.add(new MicroblockRenderMesh.Face(x,y,z,q.direction())),"duplicate greedy surface");
             }
             var a=q.vertex(0);var b=q.vertex(1);var c=q.vertex(2);

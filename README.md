@@ -2,6 +2,21 @@
 
 Minecraft 26.2 / Fabric prototype for editing a persistent 16×16×16 block with the Astra Chisel.
 
+## Native RGB colors (0.6.0)
+
+Press **B → Colors** while holding the chisel. RGB sliders and six-digit hex input
+select any of **16,777,216 opaque flat colors**. Apply chooses the Add/Replace material;
+Get block gives a full colored sculpture block in Creative. P samples existing color
+cells. Recent materials, undo/redo, sculpture items, copy/stamp, transforms, saving and
+Litematica preserve exact colors. World lighting still shades the flat surface.
+
+Colors share one white texture and the existing local palette; there is no registration
+or texture allocation for every possible color. The color-object cache is capped at
+8,192 entries, equal-color faces still merge after cache eviction, and sliders remain
+local until Apply. Palette duplicate validation uses a set instead of quadratic scans.
+New CI gates exercise all 4,096 cells with unique colors and disconnected geometry.
+See [RGB usage, performance and testing](docs/RGB-COLORS.md).
+
 ## Glass, animated materials and viewing distance (0.5.0)
 
 Microblock rendering now follows the effective chunk render distance instead of the

@@ -23,6 +23,10 @@ final class ChiselMenuCapture {
         readyAt=System.nanoTime()+1_000_000_000L;
         client.getWindow().setWindowed(stage==0?640:1280,stage==0?480:720);
         client.resizeGui();
+        if(Boolean.getBoolean("astra.colorScreenshot")) {
+            var screen=new ColorScreen(null,ignored -> {},stage==0?0x01fea3:0xff0080);
+            client.gui.setScreen(screen);return;
+        }
         var screen=new MaterialScreen(ignored -> {},java.util.List.of(dev.astra.microblocks.HostMaterial.STONE));
         client.gui.setScreen(screen);screen.query(stage==0?"log":"concrete");
     }
@@ -42,7 +46,7 @@ final class ChiselMenuCapture {
         }
         if (System.nanoTime()<readyAt) return;
         waiting=true;
-        String name=stage==0?"astra-material-small.png":"astra-material-large.png";
+        String name=Boolean.getBoolean("astra.colorScreenshot")?(stage==0?"astra-color-small.png":"astra-color-large.png"):(stage==0?"astra-material-small.png":"astra-material-large.png");
         Screenshot.takeScreenshot(client.gameRenderer.mainRenderTarget(),image -> {
             try (image) {
                 Files.createDirectories(Path.of("screenshots"));

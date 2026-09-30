@@ -33,7 +33,11 @@ public final class MaterialScreen extends Screen {
     @Override protected void init() {
         String oldQuery=search==null?"":search.getValue();
         choices.clear();int left=width/2-150;
-        search=new EditBox(font,left,34,300,20,Component.literal("Search materials"));
+        search=new EditBox(font,left,34,204,20,Component.literal("Search materials"));
+        addRenderableWidget(Button.builder(Component.literal("Colors"),ignored -> {
+            int color=transport!=null?0x6ce6fa:ChiselInspector.holdingChisel(minecraft)?ChiselMaterial.selected(minecraft.player.getMainHandItem()).filter(HostMaterial::isColor).map(m->m.argb()&0xffffff).orElse(0x6ce6fa):0x6ce6fa;
+            minecraft.gui.setScreen(new ColorScreen(this,transport,color));
+        }).bounds(left+210,34,90,20).build());
         search.setMaxLength(100);search.setValue(oldQuery);addRenderableWidget(search);
         for(int i=0;i<10;i++) {
             final int index=i;

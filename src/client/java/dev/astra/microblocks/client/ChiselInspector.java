@@ -143,7 +143,7 @@ public final class ChiselInspector {
         var mode = ChiselMode.read(client.player.getMainHandItem());
         var material=dev.astra.microblocks.ChiselMaterial.resolve(client.player.getMainHandItem(),host);
         if (cachedHost != host || cachedRevision != host.contentVersion() || !java.util.Objects.equals(cell,cachedCell)
-                || cachedFace != hit.getDirection() || cachedMode != mode || cachedOperation != operation || cachedMaterial != material) {
+                || cachedFace != hit.getDirection() || cachedMode != mode || cachedOperation != operation || !java.util.Objects.equals(cachedMaterial,material)) {
             cachedPreview = ChiselPreview.create(host.volumeCopy(), mode, cell, hit.getDirection(), operation,material);
             cachedHost = host;
             cachedRevision = host.contentVersion();
