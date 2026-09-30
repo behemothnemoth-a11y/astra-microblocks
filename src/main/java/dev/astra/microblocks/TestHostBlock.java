@@ -24,18 +24,24 @@ public final class TestHostBlock extends BaseEntityBlock {
 
     public static final net.minecraft.world.level.block.state.properties.IntegerProperty ORIENTATION =
             net.minecraft.world.level.block.state.properties.IntegerProperty.create("orientation",0,7);
+    public static final net.minecraft.world.level.block.state.properties.IntegerProperty LIGHT =
+            net.minecraft.world.level.block.state.properties.IntegerProperty.create("light",0,15);
 
     public static final MapCodec<TestHostBlock> CODEC =
             simpleCodec(TestHostBlock::new);
 
     public TestHostBlock(Properties properties) {
-        super(properties);
-        registerDefaultState(stateDefinition.any().setValue(ORIENTATION,0));
+        super(properties.lightLevel(state -> state.getValue(LIGHT)));
+        registerDefaultState(stateDefinition.any().setValue(ORIENTATION,0).setValue(LIGHT,0));
     }
 
     @Override protected void createBlockStateDefinition(
             net.minecraft.world.level.block.state.StateDefinition.Builder<Block,BlockState> builder) {
-        builder.add(ORIENTATION);
+        builder.add(ORIENTATION,LIGHT);
+    }
+    @Override protected void tick(BlockState state, net.minecraft.server.level.ServerLevel level,
+            BlockPos pos, net.minecraft.util.RandomSource random) {
+        if(level.getBlockEntity(pos) instanceof TestHostBlockEntity host) host.refreshLight();
     }
     @Override protected BlockState rotate(BlockState state,net.minecraft.world.level.block.Rotation rotation) {
         return state.setValue(ORIENTATION,SculptureOrientation.compose(SculptureOrientation.rotation(rotation),state.getValue(ORIENTATION)));

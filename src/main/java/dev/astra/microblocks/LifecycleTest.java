@@ -123,6 +123,7 @@ MicroblockRenderMeshTest.run();
 
 ServerLevel level =
         server.overworld();
+        MicroblockLightTest.run(level);
         AstraChiselTest.run(level);
         ChiselModeTest.run(level);
         ChiselPreviewTest.run();
@@ -381,6 +382,7 @@ ServerLevel level =
         SculptureTest.phaseOne(level);
         PaletteTest.phaseOne(level);
         ColorMaterialTest.persisted(level,false);
+        MicroblockLightTest.persisted(level);
         SchematicTransformTest.verifySaved(level,"SCHEMATIC_PERSISTENCE_PASS");
         writePhase(2);
 
@@ -451,6 +453,7 @@ ServerLevel level =
         SculptureTest.phaseTwo(level);
         PaletteTest.phaseTwo(level);
         ColorMaterialTest.persisted(level,true);
+        MicroblockLightTest.persisted(level);
         SchematicTransformTest.verifySaved(level,"SCHEMATIC_RESTART_PASS");
         writePhase(3);
 

@@ -7,6 +7,7 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
@@ -301,6 +302,7 @@ public final class TestHostBlockEntity extends BlockEntity {
     }
 
     private void publish() {
+        refreshLight();
         setChanged();
 
         if (level == null) {
@@ -316,6 +318,26 @@ public final class TestHostBlockEntity extends BlockEntity {
                 state,
                 Block.UPDATE_ALL
         );
+    }
+
+    /** One recomputation on edit/load, never a per-tick scan of every host. */
+    void refreshLight() {
+        if(level == null || level.isClientSide() || grid == null) return;
+        var state=level.getBlockState(worldPosition);
+        if(!state.hasProperty(TestHostBlock.LIGHT)) return;
+        int emission=MicroblockLight.emission(grid);
+        if(state.getValue(TestHostBlock.LIGHT)!=emission)
+            level.setBlock(worldPosition,state.setValue(TestHostBlock.LIGHT,emission),Block.UPDATE_ALL);
+    }
+
+    private void scheduleLightRefresh() {
+        if(level != null && !level.isClientSide())
+            level.scheduleTick(worldPosition,getBlockState().getBlock(),1);
+    }
+
+    @Override public void setLevel(Level level) {
+        super.setLevel(level);
+        scheduleLightRefresh();
     }
 
     /**
@@ -424,6 +446,7 @@ public final class TestHostBlockEntity extends BlockEntity {
             ValueInput input
     ) {
         super.loadAdditional(input);
+        scheduleLightRefresh();
         olderUndo.clear();
         redoHistory.clear();
         syncedUndo = input.getIntOr("session_undo_count", -1);
