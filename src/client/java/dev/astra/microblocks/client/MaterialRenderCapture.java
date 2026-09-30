@@ -52,19 +52,26 @@ final class MaterialRenderCapture {
                 }).get(30,java.util.concurrent.TimeUnit.SECONDS);
                 stage=2;readyAt=System.nanoTime()+12_000_000_000L;return;
             }
-            if(stage==3 || stage==5) {
+            if(stage==3 || stage==5 || stage==8) {
                 if(!captured) return;
-                if(stage==5) {stage=6;System.out.println("ASTRA_TEST: MATERIAL_VISUAL_CAPTURE_PASS");client.stop();return;}
+                if(stage==8) {stage=9;System.out.println("ASTRA_TEST: MATERIAL_VISUAL_CAPTURE_PASS");client.stop();return;}
+                if(stage==5) {
+                    client.getSingleplayerServer().submit(()-> {
+                        var server=client.getSingleplayerServer();
+                        server.getCommands().performPrefixedCommand(server.createCommandSourceStack(),"tp @a 11 105 -96 0 3");
+                    }).get(30,java.util.concurrent.TimeUnit.SECONDS);
+                    captured=false;stage=7;readyAt=System.nanoTime()+8_000_000_000L;return;
+                }
                 captured=false;stage=4;readyAt=System.nanoTime()+2_150_000_000L;return;
             }
-            if((stage==2 || stage==4) && System.nanoTime()>readyAt) {
-                String name=stage==2?"glass-animation-a.png":"glass-animation-b.png";stage++;
+            if((stage==2 || stage==4 || stage==7) && System.nanoTime()>readyAt) {
+                String name=stage==2?"glass-animation-a.png":stage==4?"glass-animation-b.png":"glass-distance-96.png";stage++;
                 Screenshot.takeScreenshot(client.gameRenderer.mainRenderTarget(),image -> {
                     try(image) {Files.createDirectories(Path.of("screenshots"));image.writeToFile(Path.of("screenshots",name));captured=true;}
                     catch(Exception error) {error.printStackTrace();failed=true;}
                 });
             }
-        } catch(Throwable error) {stage=6;error.printStackTrace();System.out.println("ASTRA_TEST: MATERIAL_VISUAL_CAPTURE_FAIL");client.stop();}
+        } catch(Throwable error) {stage=9;error.printStackTrace();System.out.println("ASTRA_TEST: MATERIAL_VISUAL_CAPTURE_FAIL");client.stop();}
     }
 }
 
