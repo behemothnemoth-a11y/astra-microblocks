@@ -26,6 +26,26 @@ or silently used as a lower-quality fallback.
 
 ## Prepare and inspect on Windows or Linux
 
+### Free hosted evaluation, 2026-09-30
+
+The [official Microsoft demo](https://huggingface.co/spaces/microsoft/TRELLIS.2)
+successfully generated a rendered preview from `01_Cthulhu_Votive/front.png`
+at resolution 512, seed 42, randomization disabled. The preview showed improved
+limb and wing volume compared with our silhouette reconstruction. This is visual
+evidence only; no model geometry could be inspected locally from this run.
+
+GLB extraction failed with a generic `Error` at both 300,000 faces / 2048 texture
+and 100,000 faces / 1024 texture. No cause was supplied by the page. No GLB was
+downloaded, and no paid service was used. See `free-demo-preview.png` for the
+rendered evidence; this image is not an editable 3D asset. The collection remains
+awaiting a successful export and artistic review before microblock conversion.
+
+The embedded upload chooser failed in the browser integration; opening the
+demo's own `https://microsoft-trellis-2.hf.space/` page allowed the normal upload
+control to work. This was a UI workaround, not a quota or authentication bypass.
+
+### Local commands
+
 Python 3.11+:
 
 ```sh
