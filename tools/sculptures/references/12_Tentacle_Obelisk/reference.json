@@ -1,0 +1,19 @@
+{
+  "source_sha256": "01a45d5cf980018dad7b89de1e7071d69b6b41c3590c80412d168ce003601c18",
+  "views": {
+    "front": {
+      "file": "front.png",
+      "sha256": "ae3e65eb8d24ed6d3806a84d133764e5c72162fa39423e12860b7c2cfb6c4178"
+    },
+    "side": {
+      "file": "side.png",
+      "sha256": "7490f89bd54a8b5f9d06ac939c5321a925f47d975fa5a3ea9c4f9b1242766c3b"
+    },
+    "back": {
+      "file": "back.png",
+      "sha256": "4978a46627fba492e4d447c623e7b7767463f84af001792f71cdfa1113cc453a"
+    }
+  },
+  "generation_view": "front",
+  "status": "reference-only"
+}

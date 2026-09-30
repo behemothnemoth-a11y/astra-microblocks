@@ -6,3 +6,4 @@ run-client-render-test/
 .idea/
 *.iml
 run-litematica-integration/
+__pycache__/

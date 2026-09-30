@@ -2,6 +2,10 @@
 
 Minecraft 26.2 / Fabric prototype for editing a persistent 16×16×16 block with the Astra Chisel.
 
+Offline sculpture authoring: [painted references and the TRELLIS.2 integration](tools/sculptures/README.md)
+prepare editable textured 3D assets before microblock conversion. GPU generation
+requires a separate supported machine; this adds no Minecraft runtime dependency.
+
 ## Native RGB colors (0.6.0)
 
 Press **B → Colors** while holding the chisel. RGB sliders and six-digit hex input

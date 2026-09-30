@@ -1,0 +1,21 @@
+name: Sculpture authoring tools
+on:
+  push:
+    branches: [main]
+    paths: ['tools/sculptures/**', '.github/workflows/sculpture-tools.yml']
+  pull_request:
+    paths: ['tools/sculptures/**', '.github/workflows/sculpture-tools.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cpu-tools:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r tools/sculptures/requirements.txt
+      - run: python -m unittest discover -s tools/sculptures -p 'test_*.py'

@@ -1,0 +1,4 @@
+# CPU preparation, inspection, and tests only. GPU dependencies belong to TRELLIS.2.
+numpy==2.5.3
+Pillow==11.3.0
+trimesh==5.1.0
