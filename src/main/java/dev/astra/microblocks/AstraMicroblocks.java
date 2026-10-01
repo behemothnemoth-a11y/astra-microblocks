@@ -128,6 +128,8 @@ public final class AstraMicroblocks
                                 .build()
                 );
 
+        MicroblockLightRepairQueue.register();
+
         if (Boolean.getBoolean(
                 "astra.lifecycleTest"
         )) {

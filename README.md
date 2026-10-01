@@ -6,6 +6,18 @@ Offline sculpture authoring: [painted references and the TRELLIS.2 integration](
 prepare editable textured 3D assets before microblock conversion. GPU generation
 requires a separate supported machine; this adds no Minecraft runtime dependency.
 
+## Safe carved-light loading (0.6.2)
+
+0.6.1 added real vanilla block-light emission from luminous microcells. 0.6.2 keeps the
+same emission policy and saved format, but defers stale-light repair until the server
+level reaches a safe end-of-tick point. Block entities no longer schedule repair ticks
+while their chunks are still deserializing, eliminating the unloaded-position error path
+found by the persistence harness.
+
+The three-boot lifecycle gate deliberately saves one luminous host with stale derived
+light and proves that load repair restores it before persistence checks run. See
+[the 0.6.2 lighting maintenance notes](docs/recessed-lighting-0.6.2.md).
+
 ## Native RGB colors (0.6.0)
 
 Press **B → Colors** while holding the chisel. RGB sliders and six-digit hex input

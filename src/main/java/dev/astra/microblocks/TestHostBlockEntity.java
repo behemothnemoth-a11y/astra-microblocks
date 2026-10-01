@@ -322,7 +322,7 @@ public final class TestHostBlockEntity extends BlockEntity {
 
     /** One recomputation on edit/load, never a per-tick scan of every host. */
     void refreshLight() {
-        if(level == null || level.isClientSide() || grid == null) return;
+        if(level == null || level.isClientSide() || grid == null || !level.hasChunkAt(worldPosition)) return;
         var state=level.getBlockState(worldPosition);
         if(!state.hasProperty(TestHostBlock.LIGHT)) return;
         int emission=MicroblockLight.emission(grid);
@@ -330,14 +330,9 @@ public final class TestHostBlockEntity extends BlockEntity {
             level.setBlock(worldPosition,state.setValue(TestHostBlock.LIGHT,emission),Block.UPDATE_ALL);
     }
 
-    private void scheduleLightRefresh() {
-        if(level != null && !level.isClientSide())
-            level.scheduleTick(worldPosition,getBlockState().getBlock(),1);
-    }
-
     @Override public void setLevel(Level level) {
         super.setLevel(level);
-        scheduleLightRefresh();
+        MicroblockLightRepairQueue.request(level, worldPosition);
     }
 
     /**
@@ -446,7 +441,6 @@ public final class TestHostBlockEntity extends BlockEntity {
             ValueInput input
     ) {
         super.loadAdditional(input);
-        scheduleLightRefresh();
         olderUndo.clear();
         redoHistory.clear();
         syncedUndo = input.getIntOr("session_undo_count", -1);
@@ -519,6 +513,7 @@ public final class TestHostBlockEntity extends BlockEntity {
             for(var snapshot:redo) redoHistory.addLast(SculptureOrientation.transform(snapshot,delta));
         }
         contentVersion++;
+        MicroblockLightRepairQueue.request(level, worldPosition);
 
     }
 

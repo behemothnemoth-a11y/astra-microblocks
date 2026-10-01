@@ -24,9 +24,12 @@ public final class MicroblockLightTest {
         check(host.redoEdit() && level.getBlockState(pos).getLightEmission()==0,"redo did not remove light");
         host.undoEdit();
         level.setBlock(pos,level.getBlockState(pos).setValue(TestHostBlock.LIGHT,0),Block.UPDATE_ALL);
-        host.refreshLight();
-        check(level.getBlockState(pos).getLightEmission()==15,"stale imported light state not repaired");
+        MicroblockLightRepairQueue.request(level,pos);
+        MicroblockLightRepairQueue.flush(level);
+        check(level.getBlockState(pos).getLightEmission()==15,"queued stale light state not repaired");
         check(level.getBlockEntity(pos)==host,"lighting replaced host entity");
+        level.setBlock(pos,level.getBlockState(pos).setValue(TestHostBlock.LIGHT,0),Block.UPDATE_ALL);
+        check(level.getBlockState(pos).getLightEmission()==0,"could not create stale persisted light state");
         System.out.println("ASTRA_TEST: MICROBLOCK_LIGHT_PASS");
     }
     public static void persisted(ServerLevel level) {

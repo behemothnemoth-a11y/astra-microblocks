@@ -121,6 +121,7 @@ jobs:
           grep -F "ASTRA_TEST: SCULPTURE_PERSISTENCE_PASS" phase1.log
           grep -F "ASTRA_TEST: PALETTE_PERSISTENCE_PASS" phase1.log
           grep -F "ASTRA_TEST: RGB_PERSISTENCE_PASS" phase1.log
+          grep -F "ASTRA_TEST: MICROBLOCK_LIGHT_PERSISTENCE_PASS" phase1.log
           grep -F "ASTRA_TEST: SCHEMATIC_PERSISTENCE_PASS" phase1.log
 
           test "$(cat run/astra-test-phase.txt)" = "2"
@@ -143,9 +144,19 @@ jobs:
           grep -F "ASTRA_TEST: SCULPTURE_RESTART_PASS" phase2.log
           grep -F "ASTRA_TEST: PALETTE_RESTART_PASS" phase2.log
           grep -F "ASTRA_TEST: RGB_RESTART_PASS" phase2.log
+          grep -F "ASTRA_TEST: MICROBLOCK_LIGHT_PERSISTENCE_PASS" phase2.log
           grep -F "ASTRA_TEST: SCHEMATIC_RESTART_PASS" phase2.log
 
           test "$(cat run/astra-test-phase.txt)" = "3"
+
+          if grep -Fq "Trying to schedule tick in not loaded position" phase0.log phase1.log phase2.log; then
+            echo "Unsafe unloaded-position light repair detected" >&2
+            exit 1
+          fi
+          if grep -Fq "Server Watchdog/ERROR" phase0.log phase1.log phase2.log; then
+            echo "Server watchdog failure detected" >&2
+            exit 1
+          fi
 
           echo "ASTRA WORLD LIFECYCLE GATE PASSED"
 
@@ -174,7 +185,7 @@ jobs:
       - name: Verify JAR contents
         shell: bash
         run: |
-          JAR="build/libs/astra-microblocks-0.6.1.jar"
+          JAR="build/libs/astra-microblocks-0.6.2.jar"
 
           test -f "$JAR"
 
@@ -218,6 +229,6 @@ jobs:
       - name: Upload compiled mod
         uses: actions/upload-artifact@v7
         with:
-          name: astra-microblocks-0.6.1
-          path: build/libs/astra-microblocks-0.6.1.jar
+          name: astra-microblocks-0.6.2
+          path: build/libs/astra-microblocks-0.6.2.jar
           if-no-files-found: error

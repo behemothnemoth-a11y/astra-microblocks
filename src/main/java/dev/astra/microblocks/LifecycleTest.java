@@ -1,6 +1,6 @@
 package dev.astra.microblocks;
 
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -64,13 +64,37 @@ public final class LifecycleTest {
     private static final int EXPECTED_OCCUPIED =
             4096 - EXPECTED_REMOVED;
 
+    private static boolean prepared;
+    private static boolean ran;
+
     private LifecycleTest() {
     }
 
     public static void register() {
-        ServerLifecycleEvents.SERVER_STARTED.register(
-                LifecycleTest::run
-        );
+        ServerTickEvents.START_SERVER_TICK.register(server -> {
+            if (prepared || ran) return;
+            try {
+                preparePersistedChunks(server);
+                prepared = true;
+            } catch (Throwable throwable) {
+                throwable.printStackTrace();
+                ran = true;
+                server.halt(false);
+            }
+        });
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (ran || !prepared) return;
+            ran = true;
+            run(server);
+        });
+    }
+
+    private static void preparePersistedChunks(MinecraftServer server) throws IOException {
+        if (readPhase() == 0) return;
+        ServerLevel level = server.overworld();
+        for (int x = 0; x <= 224; x += 16) {
+            level.getChunk(new BlockPos(x, 100, 0));
+        }
     }
 
     private static void run(MinecraftServer server) {
