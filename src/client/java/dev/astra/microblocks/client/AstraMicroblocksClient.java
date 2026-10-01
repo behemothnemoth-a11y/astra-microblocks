@@ -7,7 +7,12 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 public final class AstraMicroblocksClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
-        BlockEntityRenderers.register(AstraMicroblocks.TEST_HOST_ENTITY, TestHostBlockEntityRenderer::new);
+        AstraChunkBlockModel.register();
+        // Keep the legacy renderer available only for the synthetic client render gate.
+        // Normal gameplay renders Astra hosts through chunk-baked block geometry.
+        if (Boolean.getBoolean("astra.renderTest")) {
+            BlockEntityRenderers.register(AstraMicroblocks.TEST_HOST_ENTITY, TestHostBlockEntityRenderer::new);
+        }
         SculptureItemRenderer.register();
         SculpturePlacementPreview.register();
         ChiselInspector.register();

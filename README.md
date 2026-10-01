@@ -6,6 +6,25 @@ Offline sculpture authoring: [painted references and the TRELLIS.2 integration](
 prepare editable textured 3D assets before microblock conversion. GPU generation
 requires a separate supported machine; this adds no Minecraft runtime dependency.
 
+## Chunk-baked world rendering (0.7.0)
+
+Large Astra builds now render through Minecraft/Fabric's normal chunk mesh instead of
+submitting every sculpted host through a block-entity renderer every frame. The change
+was driven by the Grand Hypercars stress case: the Huracan contains 13,436 Astra hosts
+and the Chiron 12,805, which caused severe lag under the 0.6.x render path despite
+per-host greedy mesh caching.
+
+Each host now exposes an immutable render snapshot to the chunk builder. The existing
+greedy microblock mesh, RGB tinting, glass/translucent layers, animation, lighting,
+editing, collision, persistence and save/NBT format are preserved. Existing worlds do
+not need repasting or migration. In-game validation on the already-pasted Huracan and
+Chiron showed no perceptible lag after the switch, with RGB paint, glass, lighting,
+save/reload and editing/undo all checking out correctly.
+
+Cross-host hidden-face culling and distance LOD remain optional future work rather than
+0.7.0 requirements because the real stress case is already smooth. See
+[the 0.7.0 rendering notes](docs/render-performance-0.7.0.md).
+
 ## Safe carved-light loading (0.6.2)
 
 0.6.1 added real vanilla block-light emission from luminous microcells. 0.6.2 keeps the

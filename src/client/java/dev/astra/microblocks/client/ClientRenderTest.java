@@ -54,7 +54,46 @@ public final class ClientRenderTest {
         verifySculptures(client);
         verifyPalette(client);
         verifyOrientationReload(client);
-        var host = new TestHostBlockEntity(BlockPos.ZERO, AstraMicroblocks.TEST_HOST.defaultBlockState());
+        var blockModels = client.getModelManager().getBlockStateModelSet();
+        for (int orientation = 0; orientation < 8; orientation++) {
+            for (int light = 0; light < 16; light++) {
+                var state = AstraMicroblocks.TEST_HOST.defaultBlockState()
+                        .setValue(dev.astra.microblocks.TestHostBlock.ORIENTATION, orientation)
+                        .setValue(dev.astra.microblocks.TestHostBlock.LIGHT, light);
+                require(blockModels.get(state) instanceof AstraChunkBlockModel,
+                        "Astra chunk model missing state orientation=" + orientation + " light=" + light);
+            }
+        }
+
+        var hostState = AstraMicroblocks.TEST_HOST.defaultBlockState();
+        var chunkModel = (AstraChunkBlockModel) blockModels.get(hostState);
+        var host = new TestHostBlockEntity(BlockPos.ZERO, hostState);
+        var initialRenderData = (TestHostBlockEntity.RenderData) host.getRenderData();
+        require(initialRenderData.volume().isFull(), "initial chunk render snapshot");
+        require(chunkMesh(chunkModel, host, hostState).size() == 6, "full chunk model mesh");
+
+        var rgbHost = new TestHostBlockEntity(BlockPos.ZERO, hostState);
+        int rgbValue = 0xff7a18;
+        rgbHost.initializeDesign(new dev.astra.microblocks.MicroblockVolume(
+                dev.astra.microblocks.HostMaterial.color(rgbValue)));
+        var rgbChunk = chunkMesh(chunkModel, rgbHost, hostState);
+        require(rgbChunk.size() == 6, "RGB chunk model merge");
+        rgbChunk.forEach(quad -> {
+            for (int corner = 0; corner < 4; corner++) {
+                require(quad.color(corner) == (0xff000000 | rgbValue), "RGB chunk tint changed");
+            }
+        });
+
+        var glassMaterial = dev.astra.microblocks.HostMaterial.find("gray_stained_glass").orElseThrow();
+        var glassHost = new TestHostBlockEntity(BlockPos.ZERO, hostState);
+        glassHost.initializeDesign(new dev.astra.microblocks.MicroblockVolume(glassMaterial));
+        var glassChunk = chunkMesh(chunkModel, glassHost, hostState);
+        require(glassChunk.size() == 6, "glass chunk model merge");
+        glassChunk.forEach(quad -> require(
+                quad.chunkLayer() == net.minecraft.client.renderer.chunk.ChunkSectionLayer.TRANSLUCENT,
+                "glass chunk layer lost"));
+        System.out.println("ASTRA_TEST: CHUNK_RENDER_CLIENT_PASS");
+
         var registered = client.getBlockEntityRenderDispatcher()
                 .<TestHostBlockEntity, TestHostRenderState>getRenderer(host);
         require(registered instanceof TestHostBlockEntityRenderer, "host renderer not registered");
@@ -67,6 +106,11 @@ public final class ClientRenderTest {
         require(original.mesh == repeated.mesh, "unchanged host did not reuse mesh");
 
         host.removeCell(8, 15, 8);
+        var carvedRenderData = (TestHostBlockEntity.RenderData) host.getRenderData();
+        require(carvedRenderData != initialRenderData, "chunk render snapshot did not invalidate");
+        require(initialRenderData.volume().isFull(), "previous chunk render snapshot mutated");
+        require(!carvedRenderData.volume().isFull(), "carved chunk render snapshot stale");
+        require(chunkMesh(chunkModel, host, hostState).size() == 14, "carved chunk model mesh");
         TestHostRenderState carved = renderer.createRenderState();
         renderer.extractRenderState(host, carved, 0, Vec3.ZERO, null);
         require(carved.mesh != original.mesh && carved.mesh.size() == 14, "carve did not invalidate mesh");
@@ -130,6 +174,46 @@ public final class ClientRenderTest {
         var sprite = client.getAtlasManager().get(new SpriteId(
                 TextureAtlas.LOCATION_BLOCKS, Identifier.withDefaultNamespace("block/stone")));
         require(TestHostBlockEntityRenderer.buildMesh(empty, sprite).size() == 0, "empty grid rendered surfaces");
+    }
+
+
+    private static Mesh chunkMesh(
+            AstraChunkBlockModel model,
+            TestHostBlockEntity host,
+            net.minecraft.world.level.block.state.BlockState state
+    ) {
+        var blockView = (net.minecraft.client.renderer.block.BlockAndTintGetter)
+                java.lang.reflect.Proxy.newProxyInstance(
+                        ClientRenderTest.class.getClassLoader(),
+                        new Class<?>[]{
+                                net.minecraft.client.renderer.block.BlockAndTintGetter.class,
+                                net.fabricmc.fabric.api.blockgetter.v2.FabricBlockGetter.class
+                        },
+                        (proxy, method, args) -> {
+                            if (method.getName().equals("getBlockEntityRenderData")) {
+                                return host.getRenderData();
+                            }
+                            Class<?> type = method.getReturnType();
+                            if (type == boolean.class) return false;
+                            if (type == byte.class) return (byte) 0;
+                            if (type == short.class) return (short) 0;
+                            if (type == int.class) return 0;
+                            if (type == long.class) return 0L;
+                            if (type == float.class) return 0.0f;
+                            if (type == double.class) return 0.0d;
+                            if (type == char.class) return (char) 0;
+                            return null;
+                        });
+
+        var mutable = net.fabricmc.fabric.api.client.renderer.v1.Renderer.get().mutableMesh();
+        model.emitQuads(
+                mutable.emitter(),
+                blockView,
+                BlockPos.ZERO,
+                state,
+                net.minecraft.util.RandomSource.create(0L),
+                direction -> false);
+        return mutable.immutableCopy();
     }
 
     private static void verifyColors(Minecraft client) {

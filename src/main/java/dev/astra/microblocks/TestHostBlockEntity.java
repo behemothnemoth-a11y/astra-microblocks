@@ -12,13 +12,21 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.fabricmc.fabric.api.blockgetter.v2.RenderDataBlockEntity;
 
 /**
  * Block entity backing one sculptable 16x16x16 host.
  *
  * The MicroblockGrid is the authoritative geometry state.
  */
-public final class TestHostBlockEntity extends BlockEntity {
+public final class TestHostBlockEntity extends BlockEntity implements RenderDataBlockEntity {
+
+    /** Immutable-by-convention snapshot consumed by Fabric's chunk-building thread. */
+    public record RenderData(long contentVersion, MicroblockVolume volume) {
+        public RenderData {
+            volume = volume.copy();
+        }
+    }
 
     private static final int GRID_WORDS = 64;
 
@@ -121,7 +129,23 @@ public final class TestHostBlockEntity extends BlockEntity {
 
     private long revision;
     private long contentVersion;
+    private volatile RenderData cachedRenderData;
     public long contentVersion() {return contentVersion;}
+
+    @Override
+    public Object getRenderData() {
+        RenderData current = cachedRenderData;
+        if (current == null || current.contentVersion() != contentVersion) {
+            synchronized (this) {
+                current = cachedRenderData;
+                if (current == null || current.contentVersion() != contentVersion) {
+                    current = new RenderData(contentVersion, grid);
+                    cachedRenderData = current;
+                }
+            }
+        }
+        return current;
+    }
     private int orientation() {return getBlockState().getValue(TestHostBlock.ORIENTATION);}
 
 
@@ -285,6 +309,7 @@ public final class TestHostBlockEntity extends BlockEntity {
 
         revision++;
         contentVersion++;
+        cachedRenderData = null;
 
         publish();
     }
@@ -298,6 +323,7 @@ public final class TestHostBlockEntity extends BlockEntity {
     private void finishEdit() {
         revision++;
         contentVersion++;
+        cachedRenderData = null;
         publish();
     }
 
@@ -513,6 +539,7 @@ public final class TestHostBlockEntity extends BlockEntity {
             for(var snapshot:redo) redoHistory.addLast(SculptureOrientation.transform(snapshot,delta));
         }
         contentVersion++;
+        cachedRenderData = null;
         MicroblockLightRepairQueue.request(level, worldPosition);
 
     }
